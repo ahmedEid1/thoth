@@ -34,6 +34,108 @@ services:
       timeout: 3s
       retries: 5
 
+  langfuse-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse_dev_pw
+      POSTGRES_DB: langfuse
+    ports:
+      - "5434:5432"
+    volumes:
+      - atlas_langfuse_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: langfuse
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: langfuse_dev_pw
+    volumes:
+      - atlas_langfuse_clickhouse_data:/var/lib/clickhouse
+      - atlas_langfuse_clickhouse_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8123/ping || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  langfuse-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: --requirepass langfuse_dev_pw
+    volumes:
+      - atlas_langfuse_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "langfuse_dev_pw", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  langfuse:
+    image: langfuse/langfuse:3
+    restart: unless-stopped
+    depends_on:
+      langfuse-postgres:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "3030:3000"
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse_dev_pw@langfuse-postgres:5432/langfuse
+      DIRECT_URL: postgresql://langfuse:langfuse_dev_pw@langfuse-postgres:5432/langfuse
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: langfuse_dev_pw
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_HOST: langfuse-redis
+      REDIS_PORT: "6379"
+      REDIS_AUTH: langfuse_dev_pw
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse-events
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: us-east-1
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: atlas
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: atlas_dev_pw
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse-media
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: us-east-1
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: atlas
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: atlas_dev_pw
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      NEXTAUTH_URL: http://localhost:3030
+      NEXTAUTH_SECRET: 6f1c9b0a3d4e5f6a7b8c9d0e1f2a3b4c
+      SALT: 9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      LANGFUSE_INIT_ORG_ID: atlas
+      LANGFUSE_INIT_ORG_NAME: Atlas
+      LANGFUSE_INIT_PROJECT_ID: atlas-dev
+      LANGFUSE_INIT_PROJECT_NAME: Atlas (dev)
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-lf-atlas-dev
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-lf-atlas-dev-secret
+      LANGFUSE_INIT_USER_EMAIL: dev@atlas.local
+      LANGFUSE_INIT_USER_NAME: Atlas Dev
+      LANGFUSE_INIT_USER_PASSWORD: atlas_dev_pw
+
 volumes:
   atlas_pg:
   atlas_minio:
+  atlas_langfuse_pg:
+  atlas_langfuse_clickhouse_data:
+  atlas_langfuse_clickhouse_logs:
+  atlas_langfuse_redis:
