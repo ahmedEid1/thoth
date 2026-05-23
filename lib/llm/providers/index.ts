@@ -12,6 +12,15 @@ const ADAPTERS: Record<ProviderName, ModelFactory> = {
   anthropic: anthropicModel,
   openai: openaiModel,
   groq: groqModel,
+  // claude-agent does NOT go through the Vercel AI SDK LanguageModel path;
+  // lib/llm.ts short-circuits to the Agent SDK adapter before resolveProvider
+  // is called. This stub exists only to satisfy the Record<ProviderName, ...>
+  // type; reaching it would indicate a bug in the bypass branch.
+  "claude-agent": () => {
+    throw new Error(
+      "claude-agent provider is handled by the bypass branch in lib/llm.ts and should not be resolved here",
+    );
+  },
 };
 
 export function resolveProvider(name: ProviderName): ModelFactory {

@@ -44,6 +44,24 @@ export type RunLLMResult<T> = {
  * and returns a uniform RunLLMResult regardless of provider.
  */
 export async function runLLM<T>(args: RunLLMArgs<T>): Promise<RunLLMResult<T>> {
+  if (env.LLM_PROVIDER === "claude-agent") {
+    const { callClaudeAgent } = await import("@/lib/llm/providers/claude-agent");
+    const userMessage = args.messages
+      .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content)))
+      .join("\n\n");
+    const output = await callClaudeAgent({
+      system: args.system,
+      userMessage,
+      schema: args.schema,
+      schemaName: args.name,
+    });
+    return {
+      output,
+      traceUrl: "",
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, cacheReadInputTokens: 0 },
+    };
+  }
+
   const providerName = env.LLM_PROVIDER as ProviderName;
   const factory = resolveProvider(providerName);
   const model = factory(resolveTier(providerName, args.tier));
