@@ -18,4 +18,5 @@ tsconfig.tsbuildinfo
 /app/generated/
 
 eval-results.json
+react-paper-for-smoke.pdf
 
