@@ -15,12 +15,17 @@ describe("resolveTier", () => {
 
   for (const [provider, tier, expected] of cases) {
     it(`maps ${provider}/${tier} → ${expected}`, () => {
-      expect(resolveTier(tier, provider)).toBe(expected);
+      expect(resolveTier(provider, tier)).toBe(expected);
     });
   }
 
-  it("throws on unknown provider/tier combo at the type level — runtime smoke", () => {
-    // @ts-expect-error — invalid tier
-    expect(() => resolveTier("unknown", "gemini")).toThrow();
+  it("throws on unknown tier", () => {
+    // @ts-expect-error — invalid tier on purpose
+    expect(() => resolveTier("gemini", "unknown")).toThrow(/Unknown tier/);
+  });
+
+  it("throws on unknown provider", () => {
+    // @ts-expect-error — invalid provider on purpose
+    expect(() => resolveTier("bogus", "smart")).toThrow(/Unknown LLM provider/);
   });
 });
