@@ -20,7 +20,7 @@ const MODELS: Record<ProviderName, Record<Tier, string>> = {
   },
 };
 
-export function resolveTier(tier: Tier, provider: ProviderName): string {
+export function resolveTier(provider: ProviderName, tier: Tier): string {
   const tierMap = MODELS[provider];
   if (!tierMap) throw new Error(`Unknown LLM provider: ${provider}`);
   const model = tierMap[tier];
