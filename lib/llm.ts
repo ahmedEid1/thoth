@@ -75,6 +75,12 @@ export async function runLLM<T>(args: RunLLMArgs<T>): Promise<RunLLMResult<T>> {
       functionId: args.name,
       metadata: telemetryMeta,
     },
+    providerOptions: {
+      google: {
+        // vercel/ai#12187: Gemini Flash often returns non-JSON without this hint
+        structuredOutputs: true,
+      },
+    },
   });
 
   return {
