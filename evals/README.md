@@ -33,6 +33,13 @@ pnpm eval
 # Option 3 — Groq free (best-effort; some questions will fail with the quirks above)
 export GROQ_API_KEY=gsk_...
 pnpm eval
+
+# Option 4 — Claude Agent SDK (free with Claude Max subscription, local-dev only)
+# Routes through @anthropic-ai/claude-agent-sdk using your local `claude` CLI
+# session auth. No ANTHROPIC_API_KEY required when the Claude Code CLI is logged
+# in on the same machine. Not suitable for CI (no CLI auth in containers).
+export LLM_PROVIDER=claude-agent
+pnpm eval
 ```
 
 The harness, metrics, regression gate, and dashboard all work correctly when the

@@ -1,5 +1,5 @@
 export type Tier = "smart" | "fast";
-export type ProviderName = "gemini" | "anthropic" | "openai" | "groq";
+export type ProviderName = "gemini" | "anthropic" | "openai" | "groq" | "claude-agent";
 
 const MODELS: Record<ProviderName, Record<Tier, string>> = {
   gemini: {
@@ -24,6 +24,12 @@ const MODELS: Record<ProviderName, Record<Tier, string>> = {
     // Atlas's schemas reliably. Both free tier.
     smart: "openai/gpt-oss-20b",
     fast: "openai/gpt-oss-20b",
+  },
+  "claude-agent": {
+    // Agent SDK uses Claude Code's configured model (typically Sonnet 4.6).
+    // Tier label is informational; the SDK doesn't take a model param.
+    smart: "sonnet-via-claude-code",
+    fast: "sonnet-via-claude-code",
   },
 };
 

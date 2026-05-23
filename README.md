@@ -112,6 +112,7 @@ Atlas uses [Vercel AI SDK](https://ai-sdk.dev) so you can swap providers via a s
 | Gemini    | ✅ Free* | https://aistudio.google.com                  | `GOOGLE_GENERATIVE_AI_API_KEY`   |
 | Anthropic | Paid  | https://console.anthropic.com                 | `ANTHROPIC_API_KEY`              |
 | OpenAI    | Paid  | https://platform.openai.com                   | `OPENAI_API_KEY`                 |
+| Claude Agent SDK | ✅ Free with Max | `claude login` (Claude Code CLI)     | (CLI session — no key)           |
 
 *Gemini Flash has a known parse issue with Vercel AI SDK structured output
 ([vercel/ai#12187](https://github.com/vercel/ai/issues/12187)) — usable but
@@ -119,9 +120,14 @@ unreliable for Atlas's per-call structured Zod schemas. Switch to Groq, Anthropi
 or OpenAI for production work; Gemini stays as an option for when the upstream
 bug is fixed.
 
-To switch provider, set `LLM_PROVIDER=anthropic` (or `gemini`, `openai`) in `.env` and restart.
+To switch provider, set `LLM_PROVIDER=anthropic` (or `gemini`, `openai`, `claude-agent`) in `.env` and restart.
 Tier choice (`smart`/`fast`) per prompt stays the same — the dispatcher maps each tier to
 the equivalent model on the new provider (see `lib/llm/tiers.ts`).
+
+The `claude-agent` option routes through Anthropic's [`@anthropic-ai/claude-agent-sdk`](https://code.claude.com/docs/en/agent-sdk/overview),
+which uses the Claude Code CLI session auth on the local machine when `ANTHROPIC_API_KEY`
+is unset. Best for local-dev eval runs (free for Claude Max subscribers); not suitable
+for CI (no CLI auth in containers — CI should keep using Groq/OpenAI/Anthropic API keys).
 
 ### Python (for marker-pdf)
 
