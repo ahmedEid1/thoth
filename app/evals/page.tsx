@@ -138,13 +138,16 @@ export default async function EvalsPage() {
                       ? "text-[var(--thoth-blue-ink)]"
                       : "text-[var(--thoth-stone)]"
                   }
-                  title="Goldens that wrote at least one metric row at the most recent commit, vs total goldens defined in evals/golden/."
+                  title={
+                    completedInLatestSweep === totalYamls
+                      ? "Every golden in evals/golden/ has a metric row at the most recent commit."
+                      : "Goldens write a row only when their agent run completes. A golden may have no row at this commit because it wasn't included in the latest sweep (the cron runs a smoke subset) or because the run hit a rate-limit or walltime cap."
+                  }
                 >
                   <span className="tabular-nums">{completedInLatestSweep}</span>
-                  /{totalYamls}{" "}
-                  {completedInLatestSweep === totalYamls
-                    ? "goldens completed"
-                    : "goldens completed (rest skipped: rate-limit or walltime cap)"}
+                  <span> of </span>
+                  <span className="tabular-nums">{totalYamls}</span>
+                  <span> goldens have data at this commit</span>
                 </span>
               </>
             )}
