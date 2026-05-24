@@ -130,3 +130,41 @@ describe("runLLM", () => {
     expect(callArgs?.maxOutputTokens).toBe(8192);
   });
 });
+
+// claude-agent has no per-call usage metric (CLI session). The cost-cap
+// blind-spot fix estimates tokens from string lengths so the per-run
+// budget cap in `lib/agent/cost-cap.ts` engages even on this provider.
+describe("runLLM — claude-agent provider", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("estimates usage from input/output character length (no zero-usage no-op)", async () => {
+    vi.doMock("@/lib/env", () => ({
+      env: { LLM_PROVIDER: "claude-agent" },
+    }));
+    vi.doMock("@/lib/llm/providers/claude-agent", () => ({
+      callClaudeAgent: vi.fn().mockResolvedValue({ answer: "twenty-four characters!!" }),
+    }));
+
+    const { runLLM } = await import("@/lib/llm");
+    const result = await runLLM({
+      name: "agent-call",
+      tier: "smart",
+      maxTokens: 2048,
+      system: "0123456789".repeat(10), // 100 chars
+      messages: [{ role: "user", content: "0123456789".repeat(20) }], // 200 chars
+      schema: z.object({ answer: z.string() }),
+    });
+
+    expect(result.output).toEqual({ answer: "twenty-four characters!!" });
+    // 100/4 + 200/4 = 25 + 50 = 75 input tokens
+    expect(result.usage.inputTokens).toBe(75);
+    // JSON.stringify of {answer: "twenty-four characters!!"} is 38 chars → ceil(38/4)=10
+    expect(result.usage.outputTokens).toBeGreaterThanOrEqual(8);
+    expect(result.usage.totalTokens).toBe(result.usage.inputTokens + result.usage.outputTokens);
+    // Critically: NOT zero (the bug being fixed)
+    expect(result.usage.inputTokens).toBeGreaterThan(0);
+    expect(result.usage.outputTokens).toBeGreaterThan(0);
+  });
+});

@@ -55,10 +55,31 @@ export async function runLLM<T>(args: RunLLMArgs<T>): Promise<RunLLMResult<T>> {
       schema: args.schema,
       schemaName: args.name,
     });
+    // The Claude Agent SDK routes through the Claude Code CLI session
+    // and does NOT surface per-call token usage. Without estimates here,
+    // `lib/agent/cost-cap.ts`'s per-run budget cap (which sums
+    // RunStep.{input,output}Tokens via Prisma aggregate) silently
+    // no-ops for the whole claude-agent code path — a runaway loop on
+    // a Claude Max session could blow far past MAX_TOKENS_PER_RUN
+    // without tripping anything.
+    //
+    // Fix: estimate via the standard ~4-chars-per-token heuristic for
+    // English text. We round UP so the cap engages slightly earlier
+    // than reality rather than later. This isn't billing accuracy —
+    // it's a budget guardrail, and a conservative estimate is the
+    // right side to err on.
+    const estimateTokens = (s: string) => Math.ceil(s.length / 4);
+    const inputTokens = estimateTokens(args.system) + estimateTokens(userMessage);
+    const outputTokens = estimateTokens(JSON.stringify(output));
     return {
       output,
       traceUrl: "",
-      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, cacheReadInputTokens: 0 },
+      usage: {
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        cacheReadInputTokens: 0,
+      },
     };
   }
 
