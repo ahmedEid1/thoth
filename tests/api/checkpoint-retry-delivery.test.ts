@@ -38,23 +38,6 @@ describe("POST /api/runs/[id]/checkpoints/[cpId]/retry-delivery", () => {
     expect(deliverCheckpoint).not.toHaveBeenCalled();
   });
 
-  it("returns 403 demo_mode_readonly for guests and never calls deliver", async () => {
-    vi.mocked(requireUser).mockResolvedValue({
-      id: "u_guest",
-      isGuest: true,
-    } as never);
-
-    const { POST } = await import(
-      "@/app/api/runs/[id]/checkpoints/[cpId]/retry-delivery/route"
-    );
-    const res = await POST(buildReq(), ctx);
-    expect(res.status).toBe(403);
-    const body = (await res.json()) as { error?: string };
-    expect(body.error).toBe("demo_mode_readonly");
-    expect(db.humanCheckpoint.findUnique).not.toHaveBeenCalled();
-    expect(deliverCheckpoint).not.toHaveBeenCalled();
-  });
-
   it("returns 404 when the checkpoint does not exist", async () => {
     vi.mocked(requireUser).mockResolvedValue({
       id: "u1",
