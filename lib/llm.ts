@@ -83,44 +83,74 @@ export async function runLLM<T>(args: RunLLMArgs<T>): Promise<RunLLMResult<T>> {
     };
   }
 
-  const providerName = env.LLM_PROVIDER as ProviderName;
-  const factory = resolveProvider(providerName);
-  const model = factory(resolveTier(providerName, args.tier));
+  const primaryProvider = env.LLM_PROVIDER as ProviderName;
+  const fallbackProvider = env.LLM_FALLBACK_PROVIDER as ProviderName | undefined;
 
   const meta = args.metadata ?? {};
   const runId = typeof meta.runId === "string" ? meta.runId : undefined;
-  // OTel AttributeValue only accepts string|number|boolean (+ arrays of those).
-  // We pass through string/number/boolean values from caller metadata and skip
-  // anything else so the exporter doesn't reject the span.
-  const telemetryMeta: Record<string, AttributeValue> = {
-    tags: [args.tier, providerName],
-  };
-  for (const [k, v] of Object.entries(meta)) {
-    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
-      telemetryMeta[k] = v;
-    }
-  }
-  if (runId !== undefined) telemetryMeta.sessionId = runId;
 
-  const { object, usage } = await generateObject({
-    model,
-    output: "object",
-    schema: args.schema as z.ZodType<Record<string, unknown>>,
-    system: args.system,
-    messages: args.messages,
-    maxOutputTokens: args.maxTokens,
-    experimental_telemetry: {
-      isEnabled: true,
-      functionId: args.name,
-      metadata: telemetryMeta,
-    },
-    providerOptions: {
-      google: {
-        // vercel/ai#12187: Gemini Flash often returns non-JSON without this hint
-        structuredOutputs: true,
+  // Helper: build the OTel telemetry metadata. We rebuild per attempt so
+  // the `tags` array reflects which provider actually served the call.
+  const buildTelemetry = (provider: ProviderName): Record<string, AttributeValue> => {
+    // OTel AttributeValue only accepts string|number|boolean (+ arrays of those).
+    const telemetryMeta: Record<string, AttributeValue> = {
+      tags: [args.tier, provider],
+    };
+    for (const [k, v] of Object.entries(meta)) {
+      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+        telemetryMeta[k] = v;
+      }
+    }
+    if (runId !== undefined) telemetryMeta.sessionId = runId;
+    return telemetryMeta;
+  };
+
+  const callProvider = async (provider: ProviderName) => {
+    const factory = resolveProvider(provider);
+    const model = factory(resolveTier(provider, args.tier));
+    return generateObject({
+      model,
+      output: "object",
+      schema: args.schema as z.ZodType<Record<string, unknown>>,
+      system: args.system,
+      messages: args.messages,
+      maxOutputTokens: args.maxTokens,
+      experimental_telemetry: {
+        isEnabled: true,
+        functionId: args.name,
+        metadata: buildTelemetry(provider),
       },
-    },
-  });
+      providerOptions: {
+        google: {
+          // vercel/ai#12187: Gemini Flash often returns non-JSON without this hint
+          structuredOutputs: true,
+        },
+      },
+    });
+  };
+
+  // Try the primary provider. On failure, fall back ONCE to
+  // env.LLM_FALLBACK_PROVIDER if it's set, distinct, and not
+  // "claude-agent" (which has its own code path above and isn't a
+  // sensible fallback for an HTTP-provider failure). One retry — not a
+  // loop — so a hard outage surfaces to the caller instead of looping
+  // forever between two dead providers.
+  let object: Awaited<ReturnType<typeof callProvider>>["object"];
+  let usage: Awaited<ReturnType<typeof callProvider>>["usage"];
+  try {
+    ({ object, usage } = await callProvider(primaryProvider));
+  } catch (err) {
+    const canFallback =
+      fallbackProvider !== undefined &&
+      fallbackProvider !== primaryProvider &&
+      fallbackProvider !== "claude-agent";
+    if (!canFallback) throw err;
+    console.warn(
+      `[runLLM] primary provider "${primaryProvider}" failed for "${args.name}"; ` +
+        `falling back to "${fallbackProvider}". Reason: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    ({ object, usage } = await callProvider(fallbackProvider));
+  }
 
   return {
     output: object as T,
