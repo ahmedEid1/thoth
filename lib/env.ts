@@ -31,6 +31,17 @@ const envSchema = z.object({
   MISTRAL_API_KEY: z.string().optional(),
 
   LLM_PROVIDER: z.enum(["gemini", "anthropic", "openai", "groq", "claude-agent", "mistral"]).default("mistral"),
+
+  // Optional one-shot fallback. When set, any thrown error from the
+  // primary provider's generateObject call (5xx, rate-limit, transient
+  // network) triggers a single retry against this provider before the
+  // error propagates to the caller. Same enum as LLM_PROVIDER; pick a
+  // sibling free-tier provider for `$0` resilience (e.g. groq when the
+  // primary is mistral, or vice versa). Setting it equal to LLM_PROVIDER
+  // is a no-op (we don't fall back to the same provider that just failed).
+  // claude-agent is not a sensible fallback target since it routes
+  // through a CLI session, not an HTTP API.
+  LLM_FALLBACK_PROVIDER: z.enum(["gemini", "anthropic", "openai", "groq", "claude-agent", "mistral"]).optional(),
   LANGFUSE_PUBLIC_KEY: z.string().min(1),
   LANGFUSE_SECRET_KEY: z.string().min(1),
   LANGFUSE_HOST: z.string().url(),

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
 vi.mock("@/lib/env", () => ({
   env: {
     LLM_PROVIDER: "gemini",
+    LLM_FALLBACK_PROVIDER: undefined,
     GOOGLE_GENERATIVE_AI_API_KEY: "test-gemini-key",
     LANGFUSE_PUBLIC_KEY: "pk-lf-test",
     LANGFUSE_SECRET_KEY: "sk-lf-test",
@@ -128,6 +129,84 @@ describe("runLLM", () => {
 
     const callArgs = mocks.generateObject.mock.calls[0]?.[0];
     expect(callArgs?.maxOutputTokens).toBe(8192);
+  });
+});
+
+// LLM_FALLBACK_PROVIDER: when set, runLLM retries ONCE on the fallback
+// provider after the primary's generateObject throws.
+describe("runLLM — provider fallback", () => {
+  it("retries on the fallback when primary fails and returns its result", async () => {
+    // Mock env to enable a fallback.
+    const envMod = await import("@/lib/env");
+    (envMod.env as { LLM_FALLBACK_PROVIDER: string | undefined }).LLM_FALLBACK_PROVIDER = "groq";
+    vi.doMock("@/lib/llm/providers/groq", () => ({
+      groqModel: vi.fn((id: string) => ({ kind: "groq-model", id })),
+    }));
+
+    // First call throws (primary), second call (fallback) succeeds.
+    mocks.generateObject
+      .mockRejectedValueOnce(new Error("primary 5xx"))
+      .mockResolvedValueOnce({
+        object: { answer: "from-fallback" },
+        usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+      });
+
+    const { runLLM } = await import("@/lib/llm");
+    const result = await runLLM({
+      name: "test-call",
+      tier: "fast",
+      maxTokens: 1024,
+      system: "s",
+      messages: [{ role: "user", content: "u" }],
+      schema: z.object({ answer: z.string() }),
+    });
+
+    expect(result.output).toEqual({ answer: "from-fallback" });
+    expect(mocks.generateObject).toHaveBeenCalledTimes(2);
+    // Fallback call's telemetry tags should reflect the actual provider used.
+    const fallbackCallArgs = mocks.generateObject.mock.calls[1]?.[0];
+    expect(fallbackCallArgs?.experimental_telemetry?.metadata?.tags).toContain("groq");
+
+    // Clean up the env override
+    (envMod.env as { LLM_FALLBACK_PROVIDER: string | undefined }).LLM_FALLBACK_PROVIDER = undefined;
+  });
+
+  it("does NOT retry when fallback equals primary (no infinite loop on dead provider)", async () => {
+    const envMod = await import("@/lib/env");
+    (envMod.env as { LLM_FALLBACK_PROVIDER: string | undefined }).LLM_FALLBACK_PROVIDER = "gemini"; // same as primary
+    mocks.generateObject.mockRejectedValue(new Error("primary down"));
+
+    const { runLLM } = await import("@/lib/llm");
+    await expect(
+      runLLM({
+        name: "x",
+        tier: "fast",
+        maxTokens: 100,
+        system: "s",
+        messages: [{ role: "user", content: "u" }],
+        schema: z.object({ answer: z.string() }),
+      }),
+    ).rejects.toThrow(/primary down/);
+    expect(mocks.generateObject).toHaveBeenCalledTimes(1);
+
+    (envMod.env as { LLM_FALLBACK_PROVIDER: string | undefined }).LLM_FALLBACK_PROVIDER = undefined;
+  });
+
+  it("rethrows immediately when no fallback is configured", async () => {
+    mocks.generateObject.mockRejectedValue(new Error("alone in the dark"));
+
+    const { runLLM } = await import("@/lib/llm");
+    await expect(
+      runLLM({
+        name: "x",
+        tier: "fast",
+        maxTokens: 100,
+        system: "s",
+        messages: [{ role: "user", content: "u" }],
+        schema: z.object({ answer: z.string() }),
+      }),
+    ).rejects.toThrow(/alone in the dark/);
+    expect(mocks.generateObject).toHaveBeenCalledTimes(1);
   });
 });
 
