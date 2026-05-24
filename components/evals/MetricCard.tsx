@@ -1,6 +1,7 @@
 export type MetricCardProps = {
   label: string;
   value: number; // 0-1
+  description?: string; // one-line plain-English gloss shown under the number
 };
 
 /**
@@ -9,7 +10,7 @@ export type MetricCardProps = {
  * (Thoth gold for excellent, blue for solid, stone for weak) so each
  * card carries its own data without shouting in red/green primaries.
  */
-export function MetricCard({ label, value }: MetricCardProps) {
+export function MetricCard({ label, value, description }: MetricCardProps) {
   const pct = Math.round(value * 100);
   const hue =
     pct >= 75
@@ -44,6 +45,12 @@ export function MetricCard({ label, value }: MetricCardProps) {
           style={{ width: `${pct}%`, backgroundColor: hue }}
         />
       </div>
+
+      {description && (
+        <p className="text-xs text-[var(--thoth-stone)] leading-snug">
+          {description}
+        </p>
+      )}
     </div>
   );
 }
