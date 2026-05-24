@@ -57,62 +57,68 @@ export async function POST() {
 
   // Mint a globally unique guest email. Clerk requires a unique email,
   // and we want the prefix to make these obvious in the dashboard +
-  // make them easy to filter for the cleanup cron later.
+  // make them easy to filter for the cleanup cron later. We use the
+  // `.test` TLD because it's reserved by RFC 2606 specifically for
+  // testing purposes (`.demo` isn't a real TLD and Clerk rejects it).
   const guestSlug = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-  const email = `guest-${guestSlug}@thoth.demo`;
+  const email = `guest-${guestSlug}@thoth.test`;
 
   const clerk = await clerkClient();
 
-  let clerkUserId: string;
-  let signInUrl: string;
-
+  let step = "init";
   try {
+    step = "clerk_create_user";
     const clerkUser = await clerk.users.createUser({
       emailAddress: [email],
       skipPasswordRequirement: true,
       publicMetadata: { isGuest: true, source: "demo-button" },
     });
-    clerkUserId = clerkUser.id;
+    const clerkUserId = clerkUser.id;
 
-    // Mirror into our User table immediately — skip the webhook race
+    step = "db_create_user";
     await db.user.create({
       data: { clerkId: clerkUserId, email, isGuest: true },
     });
 
-    // Clone the template (Project + corpus + runs + claims + cite_check)
+    step = "lookup_atlas_user";
     const atlasUser = await db.user.findUniqueOrThrow({
       where: { clerkId: clerkUserId },
       select: { id: true },
     });
+
+    step = "clone_template";
     await cloneReviewTemplate({
       templateProjectId,
       targetOwnerId: atlasUser.id,
     });
 
-    // Mint a one-shot sign-in ticket. The returned `url` is Clerk's
-    // hosted ticket consumer — the client redirects there and the
-    // session cookie is set on the way back.
+    step = "create_sign_in_token";
     const ticket = await clerk.signInTokens.createSignInToken({
       userId: clerkUserId,
       expiresInSeconds: 60,
     });
-    signInUrl = `${ticket.url}&redirect_url=${encodeURIComponent("/dashboard")}`;
+    const signInUrl = `${ticket.url}&redirect_url=${encodeURIComponent("/dashboard")}`;
+
+    return NextResponse.json(
+      { signInUrl, message: "Demo provisioned. Redirect to signInUrl." },
+      { status: 201 },
+    );
   } catch (err) {
-    console.error("[demo/start] failed to provision guest:", err);
-    // Best effort: roll back the Clerk user if we created it but a later
-    // step failed. (Local User row will be removed too via webhook on
-    // delete, or by the cleanup cron.)
+    // Log the step + the full error so Vercel runtime logs surface the
+    // root cause. The client-facing message stays generic so we don't
+    // leak internals to anonymous callers.
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : undefined;
+    console.error(
+      `[demo/start] FAILED at step="${step}" email="${email}" message="${errMsg}"\nstack=${errStack}`,
+    );
     return NextResponse.json(
       {
         error: "demo_provision_failed",
+        step,
         message: "Could not set up the demo. Please try again or sign in to a real account.",
       },
       { status: 500 },
     );
   }
-
-  return NextResponse.json(
-    { signInUrl, message: "Demo provisioned. Redirect to signInUrl." },
-    { status: 201 },
-  );
 }
