@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <main className="min-h-screen grid place-items-center px-6">
       <div className="max-w-2xl text-center space-y-6">
-        <h1 className="text-4xl font-semibold tracking-tight">Atlas</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">Thoth</h1>
         <p className="text-lg text-muted-foreground">
           A GDPR-safe agentic workspace for systematic literature reviews.
         </p>

@@ -1,4 +1,4 @@
-# Atlas, weeks 3-4: the agent loop
+# Thoth, weeks 3-4: the agent loop
 
 The third post in a series documenting an open-source agentic literature-review platform.
 

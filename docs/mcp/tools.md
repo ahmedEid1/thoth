@@ -1,9 +1,9 @@
-# Atlas MCP — Tools Reference
+# Thoth MCP — Tools Reference
 
-Atlas's MCP server exposes 3 read-only tools over your Atlas reviews.
+Thoth's MCP server exposes 3 read-only tools over your Thoth reviews.
 
-Install URL: `https://atlas-sooty-delta.vercel.app/api/mcp/mcp`
-Registry entry: [`io.github.ahmedEid1/atlas-research`](https://registry.modelcontextprotocol.io/v0.1/servers?search=atlas-research) on the official MCP Registry.
+Install URL: `https://thoth.vercel.app/api/mcp/mcp`
+Registry entry: [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth) on the official MCP Registry.
 
 All tools require an OAuth 2.1 access token from Clerk (your MCP client
 handles this automatically via Dynamic Client Registration).
@@ -16,7 +16,7 @@ see other users' reviews.
 
 **Side-effects:** read-only · $0 · no LLM at call time
 
-Lists every Atlas review run you own.
+Lists every Thoth review run you own.
 
 **Input:** _(none)_
 
@@ -47,7 +47,7 @@ Lists every Atlas review run you own.
 
 **Side-effects:** read-only · $0 · no LLM at call time
 
-Returns the full markdown draft of a completed Atlas review.
+Returns the full markdown draft of a completed Thoth review.
 
 **Input:**
 ```json
@@ -77,7 +77,7 @@ by you, or hasn't produced a draft yet.
 
 **Side-effects:** read-only · $0 · no LLM at call time
 
-Returns Atlas's per-claim cite_check audit for a completed review.
+Returns Thoth's per-claim cite_check audit for a completed review.
 Every cited claim in the draft has a verdict —
 `supported` / `unsupported` / `unclear` — with a reason and (when
 available) a quoted excerpt from the supporting paper.

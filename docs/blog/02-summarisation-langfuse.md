@@ -1,4 +1,4 @@
-# Atlas, week two: first AI, first traces
+# Thoth, week two: first AI, first traces
 
 The second post in a series documenting an open-source agentic literature-review platform.
 

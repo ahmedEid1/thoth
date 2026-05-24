@@ -4,7 +4,7 @@ import { putObject, getObjectBytes, getSignedGetUrl } from "../lib/object-store"
 async function main() {
   const key = `smoke-test/m3.5b-r2-${Date.now()}.txt`;
   const body = new TextEncoder().encode(
-    "Hello from Atlas M3.5b R2 smoke test. If you're reading this, the round-trip works.",
+    "Hello from Thoth M3.5b R2 smoke test. If you're reading this, the round-trip works.",
   );
 
   console.log("→ PUT object:", key);

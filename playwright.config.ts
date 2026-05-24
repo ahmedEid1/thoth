@@ -9,7 +9,7 @@ dotenv.config({ path: ".env.test" });
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3001";
 // "Live" = anything that isn't the local dev server. When live, we don't spin
 // up the Next.js dev server and we only run the mcp-smoke test (the other e2e
-// tests need a real Clerk session against a local Atlas instance and aren't
+// tests need a real Clerk session against a local Thoth instance and aren't
 // safe to run against production anyway).
 const IS_LIVE = !BASE_URL.includes("localhost") && !BASE_URL.includes("127.0.0.1");
 

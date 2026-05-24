@@ -1,8 +1,8 @@
-# Atlas, week one: foundations
+# Thoth, week one: foundations
 
 *The first in a series documenting an open-source agentic literature-review platform, built from spec to public launch over seven weeks.*
 
-## Why I'm building Atlas
+## Why I'm building Thoth
 
 [Pitch: applied AI engineering done right; SLR niche; what existing tools miss; why GDPR-safe matters; the personal angle (pivot from full-stack SWE).]
 
@@ -31,4 +31,4 @@
 
 ---
 
-*The full design spec and per-milestone plans live at [github.com/ahmedEid1/atlas/docs](https://github.com/ahmedEid1/atlas/tree/main/docs). The work is built using a spec-driven approach with Claude Code as the implementation collaborator.*
+*The full design spec and per-milestone plans live at [github.com/ahmedEid1/thoth/docs](https://github.com/ahmedEid1/thoth/tree/main/docs). The work is built using a spec-driven approach with Claude Code as the implementation collaborator.*

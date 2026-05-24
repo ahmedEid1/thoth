@@ -1,4 +1,4 @@
-# Atlas — production image for self-host (Oracle Cloud Ampere A1 or any linux/arm64).
+# Thoth — production image for self-host (Oracle Cloud Ampere A1 or any linux/arm64).
 #
 # Multi-stage build:
 #   1. deps         — installs full deps (incl. dev) for the build
@@ -8,13 +8,13 @@
 # Notable choices:
 #   - Node 22 (matches Vercel runtime; Next 16 supports Node 20+)
 #   - pnpm via corepack (no global install needed)
-#   - NO Python. Atlas dropped marker-pdf in v0.5.x; PDF parsing is now Mistral OCR
+#   - NO Python. Thoth dropped marker-pdf in v0.5.x; PDF parsing is now Mistral OCR
 #     over HTTP (lib/pdf-parse.ts) so the image stays small and pure-Node.
 #   - We run `prisma migrate deploy` at container start (in CMD), not at build time,
 #     so the image doesn't bake in a DB connection.
 #
 # Build context: project root (../..). The compose file passes context: ../..
-# so paths below are relative to the Atlas repo root.
+# so paths below are relative to the Thoth repo root.
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 1 — deps

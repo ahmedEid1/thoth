@@ -1,4 +1,4 @@
-# Atlas self-host quickstart (Oracle Cloud Always Free)
+# Thoth self-host quickstart (Oracle Cloud Always Free)
 
 > Status: M3.5c (shipped 2026-05-24). Companion to the cloud stack documented in the
 > root [`README.md`](../../README.md). Pick this path if you want to own your
@@ -8,7 +8,7 @@
 
 - A single Oracle Cloud Ampere A1 VM — **4 ARM cores + 24 GB RAM, free forever**, no
   credit card required after the initial account verification.
-- Atlas (Next.js) + Postgres 17 + MinIO + self-hosted Langfuse all running behind
+- Thoth (Next.js) + Postgres 17 + MinIO + self-hosted Langfuse all running behind
   Caddy with auto-renewing Let's Encrypt TLS.
 - ~5 minutes/month of maintenance once the cron jobs are wired up.
 
@@ -17,8 +17,8 @@
 | Piece | Why | Free tier |
 |---|---|---|
 | Mistral API key | LLM + PDF OCR. Self-hosting LLM on Oracle's ARM free tier is not viable (no GPU). | `Experiment` tier on https://console.mistral.ai covers small-scale use. |
-| Clerk Cloud (auth) | Atlas's auth/middleware uses `@clerk/nextjs`. Swapping to a self-hostable auth (e.g. NextAuth + Postgres) is a future M3.5d refactor — not in this scope. | Free 10K MAU. |
-| (Optional) Trigger.dev Cloud | Background jobs. Atlas defaults to Trigger.dev Cloud; self-hosting it is documented as an advanced step at the bottom. | Free 500K runs/mo. |
+| Clerk Cloud (auth) | Thoth's auth/middleware uses `@clerk/nextjs`. Swapping to a self-hostable auth (e.g. NextAuth + Postgres) is a future M3.5d refactor — not in this scope. | Free 10K MAU. |
+| (Optional) Trigger.dev Cloud | Background jobs. Thoth defaults to Trigger.dev Cloud; self-hosting it is documented as an advanced step at the bottom. | Free 500K runs/mo. |
 | Domain name | TLS, Clerk redirects, OAuth callbacks. | ~€10/yr; you probably already have one. |
 
 Total recurring cost: **$0/month** + domain renewal.
@@ -38,7 +38,7 @@ Total recurring cost: **$0/month** + domain renewal.
 In the Oracle Cloud console (https://cloud.oracle.com):
 
 1. **Menu → Compute → Instances → Create Instance.**
-2. **Name:** `atlas`.
+2. **Name:** `thoth`.
 3. **Image:** click *Edit* on the image row → *Change image* → pick **Canonical
    Ubuntu 22.04 (Minimal)** for `aarch64`.
 4. **Shape:** click *Edit* → *Change shape* → **Ampere → VM.Standard.A1.Flex** →
@@ -119,15 +119,15 @@ sudo systemctl restart docker
 
 ---
 
-## Step 4 — Clone Atlas and configure
+## Step 4 — Clone Thoth and configure
 
 ```bash
-sudo mkdir -p /opt/atlas
-sudo chown ubuntu:ubuntu /opt/atlas
-cd /opt/atlas
+sudo mkdir -p /opt/thoth
+sudo chown ubuntu:ubuntu /opt/thoth
+cd /opt/thoth
 
-git clone https://github.com/ahmedEid1/atlas.git
-cd atlas/infra/self-host
+git clone https://github.com/ahmedEid1/thoth.git
+cd thoth/infra/self-host
 
 cp .env.prod.example .env.prod
 
@@ -143,7 +143,7 @@ Things to double-check before bringing up the stack:
 
 - `DOMAIN` matches what your DNS points at.
 - `DATABASE_URL` password matches `POSTGRES_PASSWORD` (they appear twice on purpose;
-  if they drift, Atlas can't connect to its own DB).
+  if they drift, Thoth can't connect to its own DB).
 - `LANGFUSE_ENCRYPTION_KEY` is exactly 64 hex chars. The Langfuse container
   refuses to start otherwise.
 - The Clerk dashboard for this app lists `https://your-domain.com` as an allowed
@@ -154,13 +154,13 @@ Things to double-check before bringing up the stack:
 ## Step 5 — Bring up the stack
 
 ```bash
-cd /opt/atlas/atlas/infra/self-host
+cd /opt/thoth/thoth/infra/self-host
 
-# First boot — the Atlas image has to build (~5-8 min on Ampere A1).
+# First boot — the Thoth image has to build (~5-8 min on Ampere A1).
 docker compose -f docker-compose.prod.yml up -d --build
 
-# Tail the Atlas logs to watch migrations + first-boot init.
-docker compose -f docker-compose.prod.yml logs -f atlas
+# Tail the Thoth logs to watch migrations + first-boot init.
+docker compose -f docker-compose.prod.yml logs -f thoth
 ```
 
 Expect this rough sequence in the logs:
@@ -180,12 +180,12 @@ docker compose -f docker-compose.prod.yml ps   # all services should be "Up (hea
 
 ### Create the S3 bucket
 
-MinIO doesn't auto-create the `atlas-corpus` bucket. Do it once:
+MinIO doesn't auto-create the `thoth-corpus` bucket. Do it once:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec minio sh -c \
   "mc alias set local http://localhost:9000 $S3_ACCESS_KEY_ID $S3_SECRET_ACCESS_KEY && \
-   mc mb -p local/atlas-corpus"
+   mc mb -p local/thoth-corpus"
 ```
 
 (Or use the MinIO console — temporarily expose port 9001 by editing the compose
@@ -195,7 +195,7 @@ file, or add a `minio.{$DOMAIN}` route in the Caddyfile.)
 
 ## Step 6 — Verify
 
-- Visit `https://your-domain.com` — should show the Atlas sign-in screen.
+- Visit `https://your-domain.com` — should show the Thoth sign-in screen.
 - Sign up with Clerk, create a project, upload a small PDF, click *Start Review*.
 - Watch the progress in the UI; expect ~2-4 min for a single-paper review on Ampere A1.
 - Visit `https://langfuse.your-domain.com` — log in with the
@@ -204,7 +204,7 @@ file, or add a `minio.{$DOMAIN}` route in the Caddyfile.)
 
 If the review fails:
 
-- Check `docker compose logs atlas` for app errors.
+- Check `docker compose logs thoth` for app errors.
 - Check `docker compose logs langfuse-worker` if traces aren't appearing.
 - If Trigger.dev jobs aren't running, confirm `TRIGGER_PROJECT_REF` /
   `TRIGGER_SECRET_KEY` point at a deployed Trigger.dev project (`pnpm trigger:deploy`
@@ -225,15 +225,15 @@ crontab -e
 Add:
 
 ```
-0 3 * * * cd /opt/atlas/atlas/infra/self-host && ./backup-postgres.sh >> /var/log/atlas-backup.log 2>&1
+0 3 * * * cd /opt/thoth/thoth/infra/self-host && ./backup-postgres.sh >> /var/log/thoth-backup.log 2>&1
 ```
 
 The script (`infra/self-host/backup-postgres.sh`) writes timestamped gzipped dumps
 to `./backups/` and prunes anything older than 14 days. Restore with:
 
 ```bash
-gunzip -c backups/atlas-2026-05-24_030000Z.sql.gz | \
-  docker compose exec -T postgres psql -U atlas -d atlas
+gunzip -c backups/thoth-2026-05-24_030000Z.sql.gz | \
+  docker compose exec -T postgres psql -U thoth -d thoth
 ```
 
 For off-site backup, `rsync` the `./backups` folder somewhere (B2, R2, an
@@ -242,11 +242,11 @@ external host you trust).
 ### Monthly — updates
 
 ```bash
-cd /opt/atlas/atlas
+cd /opt/thoth/thoth
 git pull
 cd infra/self-host
 docker compose -f docker-compose.prod.yml pull          # pulls upstream images
-docker compose -f docker-compose.prod.yml up -d --build # rebuilds Atlas, applies migrations
+docker compose -f docker-compose.prod.yml up -d --build # rebuilds Thoth, applies migrations
 ```
 
 Compose does a rolling restart per service. Total downtime is typically <30 s.
@@ -267,9 +267,9 @@ for everything short of a public launch. If you want full sovereignty:
 
 - Follow https://github.com/triggerdotdev/self-hosted-trigger.dev.
 - It adds ~5 more services (the trigger orchestrator + its own Postgres + Redis +
-  Electric). Run it alongside Atlas's compose (separate `docker-compose.yml`; the
+  Electric). Run it alongside Thoth's compose (separate `docker-compose.yml`; the
   shared Docker network handles cross-stack DNS).
-- Add a `trigger.{$DOMAIN}` route to the Atlas `Caddyfile`, pointing at the
+- Add a `trigger.{$DOMAIN}` route to the Thoth `Caddyfile`, pointing at the
   trigger orchestrator service.
 - Set `TRIGGER_API_URL=https://trigger.your-domain.com` in `.env.prod` and
   re-deploy your trigger tasks (`pnpm trigger:deploy --self-hosted`).
@@ -319,8 +319,8 @@ Everything lives under `infra/self-host/`:
 
 | File | Purpose |
 |---|---|
-| `docker-compose.prod.yml` | The full stack (Caddy, Atlas, Postgres, MinIO, Langfuse). |
+| `docker-compose.prod.yml` | The full stack (Caddy, Thoth, Postgres, MinIO, Langfuse). |
 | `Caddyfile` | Reverse-proxy + auto-TLS config. Uses `{$DOMAIN}` from env. |
-| `Dockerfile` | Multi-stage Node-22 build for the Atlas app. No Python (Mistral OCR). |
+| `Dockerfile` | Multi-stage Node-22 build for the Thoth app. No Python (Mistral OCR). |
 | `.env.prod.example` | Production env template — `cp` to `.env.prod` and edit. |
 | `backup-postgres.sh` | Cron-runnable Postgres dump with 14-day retention. |
