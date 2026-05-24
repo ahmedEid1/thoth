@@ -106,7 +106,7 @@ export async function POST(req: Request) {
 
   // Track what we've created so the catch block can compensate cleanly.
   let createdClerkUserId: string | null = null;
-  let createdAtlasUserId: string | null = null;
+  let createdLocalUserId: string | null = null;
 
   let step = "init";
   try {
@@ -119,11 +119,11 @@ export async function POST(req: Request) {
     createdClerkUserId = clerkUser.id;
 
     step = "db_create_user";
-    const atlasUser = await db.user.create({
+    const localUser = await db.user.create({
       data: { clerkId: clerkUser.id, email, isGuest: true },
       select: { id: true },
     });
-    createdAtlasUserId = atlasUser.id;
+    createdLocalUserId = localUser.id;
 
     step = "create_sign_in_token";
     const ticket = await clerk.signInTokens.createSignInToken({
@@ -175,12 +175,12 @@ export async function POST(req: Request) {
     // Compensation — best-effort, in REVERSE order of creation. Each
     // step is isolated in its own try/catch so a compensation failure
     // can't swallow the original error or skip subsequent cleanup.
-    if (createdAtlasUserId) {
+    if (createdLocalUserId) {
       try {
-        await db.user.delete({ where: { id: createdAtlasUserId } });
+        await db.user.delete({ where: { id: createdLocalUserId } });
       } catch (cleanupErr) {
         console.error(
-          `[demo/start] compensation: atlas user delete failed userId=${createdAtlasUserId} reason=${
+          `[demo/start] compensation: local user delete failed userId=${createdLocalUserId} reason=${
             cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)
           }`,
         );

@@ -14,12 +14,12 @@ describe("object-store (integration)", () => {
   it("puts and fetches an object", async () => {
     const { putObject, getObjectBytes } = await import("@/lib/object-store");
     const key = `test/${randomUUID()}.txt`;
-    const bytes = new TextEncoder().encode("hello atlas");
+    const bytes = new TextEncoder().encode("hello thoth");
 
     await putObject(key, bytes, "text/plain");
     const fetched = await getObjectBytes(key);
 
-    expect(new TextDecoder().decode(fetched)).toBe("hello atlas");
+    expect(new TextDecoder().decode(fetched)).toBe("hello thoth");
   });
 
   it("returns a presigned GET URL", async () => {
@@ -28,7 +28,7 @@ describe("object-store (integration)", () => {
     await putObject(key, new Uint8Array([1, 2, 3]), "application/octet-stream");
 
     const url = await getSignedGetUrl(key, 60);
-    const expectedPrefix = (process.env.S3_ENDPOINT ?? "http://localhost:9010") + "/atlas-corpus/";
+    const expectedPrefix = (process.env.S3_ENDPOINT ?? "http://localhost:9010") + "/thoth-corpus/";
     expect(url.startsWith(expectedPrefix)).toBe(true);
 
     const res = await fetch(url);

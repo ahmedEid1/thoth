@@ -5,14 +5,14 @@ import { test, expect } from "@playwright/test";
  * Run with: pnpm playwright test tests/e2e/mcp-smoke.spec.ts --project=chromium
  *
  * Required env (none for the unauthenticated path):
- *  - PLAYWRIGHT_BASE_URL or defaults to https://atlas-sooty-delta.vercel.app
+ *  - PLAYWRIGHT_BASE_URL or defaults to https://thoth-slr.vercel.app
  *
  * The authenticated tool-call path is covered by the manual smoke in
  * RELEASING.md (Task 14) — using a Clerk testing JWT requires more
  * setup than this smoke is worth.
  */
 
-const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "https://atlas-sooty-delta.vercel.app";
+const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "https://thoth-slr.vercel.app";
 
 test("MCP /api/mcp/mcp returns 401 with proper WWW-Authenticate header when no auth", async ({ request }) => {
   const res = await request.post(`${BASE}/api/mcp/mcp`, {

@@ -11,7 +11,7 @@ export const listReviewsOutput = z.object({
     projectId: z.string(),
     projectName: z.string(),
     researchQuestion: z.string(),
-    status: z.string(),     // RunStatus enum — kept as string for forward-compat as Atlas adds new states (current: PENDING|PLANNING|AWAITING_PLAN_APPROVAL|RETRIEVING|AWAITING_PAPERS_APPROVAL|ASSESSING|DRAFTING|COMPLETED|REJECTED|FAILED)
+    status: z.string(),     // RunStatus enum — kept as string for forward-compat as Thoth adds new states (current: PENDING|PLANNING|AWAITING_PLAN_APPROVAL|RETRIEVING|AWAITING_PAPERS_APPROVAL|ASSESSING|DRAFTING|COMPLETED|REJECTED|FAILED)
     createdAt: z.string(),
     completedAt: z.string().nullable(),
     critiqueScore: z.number().nullable(),

@@ -3,7 +3,7 @@ import { verifyClerkToken } from "@clerk/mcp-tools/next";
 import { db } from "@/lib/db";
 
 export type McpUserCtx = {
-  userId: string;        // Atlas User.id (local cuid)
+  userId: string;        // Thoth User.id (local cuid)
   clerkId: string;       // Clerk user id (subject of JWT)
 };
 
@@ -15,7 +15,7 @@ export class McpAuthError extends Error {
 }
 
 /**
- * Verify a Clerk OAuth JWT and resolve it to an Atlas User.
+ * Verify a Clerk OAuth JWT and resolve it to a Thoth User.
  * Throws McpAuthError on any failure — caller is responsible for
  * returning a 401 with the correct WWW-Authenticate header.
  *

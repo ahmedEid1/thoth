@@ -40,7 +40,7 @@ function buildRequest(
  * Individual tests can override any mock before calling POST.
  */
 function wireHappyPath(opts: { deleteUserImpl?: ReturnType<typeof vi.fn> } = {}) {
-  vi.mocked(db.user.create).mockResolvedValue({ id: "u_atlas_xyz" } as never);
+  vi.mocked(db.user.create).mockResolvedValue({ id: "u_local_xyz" } as never);
   vi.mocked(db.user.delete).mockResolvedValue({} as never);
 
   const createUser = vi.fn().mockResolvedValue({ id: "user_clerk_xyz" });
@@ -320,16 +320,16 @@ describe("POST /api/demo/start — compensation on partial failure", () => {
 
     // Clerk user is a real side effect that must be cleaned up.
     expect(deleteUser).toHaveBeenCalledWith("user_clerk_xyz");
-    // db.user.create threw → no atlas user row to delete.
+    // db.user.create threw → no local user row to delete.
     expect(db.user.delete).not.toHaveBeenCalled();
   });
 
-  it("rolls back Clerk + atlas user when createSignInToken throws", async () => {
+  it("rolls back Clerk + local user when createSignInToken throws", async () => {
     const createUser = vi.fn().mockResolvedValue({ id: "user_clerk_xyz" });
     const deleteUser = vi.fn().mockResolvedValue({});
     const createSignInToken = vi.fn().mockRejectedValue(new Error("ticket service down"));
 
-    vi.mocked(db.user.create).mockResolvedValue({ id: "u_atlas_xyz" } as never);
+    vi.mocked(db.user.create).mockResolvedValue({ id: "u_local_xyz" } as never);
     vi.mocked(db.user.delete).mockResolvedValue({} as never);
     vi.mocked(clerkClient).mockResolvedValue({
       users: { createUser, deleteUser },
@@ -339,8 +339,8 @@ describe("POST /api/demo/start — compensation on partial failure", () => {
     const res = await POST(buildRequest({ ip: "10.0.0.52" }));
     expect(res.status).toBe(500);
 
-    // Both side effects must be compensated, atlas user first then Clerk.
-    expect(db.user.delete).toHaveBeenCalledWith({ where: { id: "u_atlas_xyz" } });
+    // Both side effects must be compensated, local user first then Clerk.
+    expect(db.user.delete).toHaveBeenCalledWith({ where: { id: "u_local_xyz" } });
     expect(deleteUser).toHaveBeenCalledWith("user_clerk_xyz");
   });
 

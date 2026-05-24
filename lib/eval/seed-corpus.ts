@@ -5,12 +5,12 @@ export type SeedResult = {
   userId: string;
   projectId: string;
   corpusItemIds: string[];
-  /** Maps the YAML's paper.id to Atlas's corpus item id (cuid) — eval metrics need this. */
+  /** Maps the YAML's paper.id to Thoth's corpus item id (cuid) — eval metrics need this. */
   paperIdMap: Record<string, string>;
 };
 
 const EVAL_CLERK_ID = "user_eval_runner_synthetic";
-const EVAL_EMAIL = "evals@atlas.local";
+const EVAL_EMAIL = "evals@thoth.local";
 
 /**
  * Provisions a fresh user/project/corpus from a golden question. CorpusItems

@@ -54,7 +54,7 @@ export const guestCleanupTask = schedules.task({
       } catch (err) {
         clerkFailures += 1;
         logger.warn("guest-cleanup: clerk delete failed (continuing)", {
-          atlasUserId: guest.id,
+          localUserId: guest.id,
           clerkId: guest.clerkId,
           reason: err instanceof Error ? err.message : String(err),
         });
@@ -65,7 +65,7 @@ export const guestCleanupTask = schedules.task({
         cleaned += 1;
       } catch (err) {
         logger.error("guest-cleanup: local delete failed", {
-          atlasUserId: guest.id,
+          localUserId: guest.id,
           reason: err instanceof Error ? err.message : String(err),
         });
       }
