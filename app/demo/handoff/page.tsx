@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 // The legacy entry point keeps the familiar imperative useSignIn() shape
 // (isLoaded / setActive / signIn.create returning a SignInResource) that
 // every "consume a sign-in ticket" example in the Clerk docs uses.
@@ -8,6 +8,7 @@ import { Suspense, useEffect, useState } from "react";
 // v7 — useful for live-binding forms but unnecessary for a one-shot
 // ticket handoff like this.
 import { useSignIn } from "@clerk/nextjs/legacy";
+import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -55,27 +56,42 @@ function HandoffLoading() {
 
 function DemoHandoffInner() {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { isSignedIn } = useUser();
   const router = useRouter();
   const ticket = useSearchParams().get("ticket");
   const [error, setError] = useState<string | null>(null);
+  // Ticket consumption must be exactly-once. React's effect can re-run
+  // (Strict Mode double-invoke in dev; in prod, the `signIn` reference
+  // changes after the first sign-in completes and re-triggers the effect)
+  // — a second signIn.create with the same ticket throws because Clerk
+  // marks tickets as consumed on first use, surfacing a misleading
+  // "handoff failed" error AFTER the session was already created.
+  const consumedRef = useRef(false);
 
   useEffect(() => {
-    if (!isLoaded || !signIn || !ticket) return;
+    // Already signed in (either we just succeeded, or the user arrived
+    // here with a pre-existing session) — head straight to the dashboard.
+    // This also rescues the post-error case where the FIRST signIn.create
+    // succeeded silently before the catch ran on a second invocation.
+    if (isSignedIn) {
+      router.push("/dashboard");
+      return;
+    }
 
-    let cancelled = false;
+    if (!isLoaded || !signIn || !ticket) return;
+    if (consumedRef.current) return;
+    consumedRef.current = true;
+
     (async () => {
       try {
-        // Create a sign-in attempt using the ticket strategy.
         const attempt = await signIn.create({
           strategy: "ticket",
           ticket,
         });
-        if (cancelled) return;
 
         if (attempt.status === "complete" && attempt.createdSessionId) {
-          // Activate the session, then navigate to the dashboard.
           await setActive({ session: attempt.createdSessionId });
-          if (!cancelled) router.push("/dashboard");
+          router.push("/dashboard");
           return;
         }
 
@@ -84,22 +100,24 @@ function DemoHandoffInner() {
             "Try again or sign in to a real account.",
         );
       } catch (err) {
-        if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
-        // Don't leak Clerk internals in the UI; log them and show a
-        // generic but actionable message.
-        console.error("[demo/handoff] signIn.ticket failed:", msg);
-        setError(
-          "Couldn't activate the demo session. The link may have expired (60s window). " +
-            "Try clicking the demo button again.",
-        );
+        console.error("[demo/handoff] signIn.create failed:", msg);
+        // If the failure was the harmless "ticket already consumed" race
+        // (because Clerk's own session state turned isSignedIn=true
+        // between renders), the isSignedIn effect above will navigate us
+        // to /dashboard on the next render. Show the error only if we
+        // genuinely aren't signed in after a short grace period.
+        setTimeout(() => {
+          if (!isSignedIn) {
+            setError(
+              "Couldn't activate the demo session. The link may have expired (60s window). " +
+                "Try clicking the demo button again.",
+            );
+          }
+        }, 600);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoaded, signIn, ticket, setActive, router]);
+  }, [isLoaded, signIn, ticket, setActive, router, isSignedIn]);
 
   return (
     <main className="min-h-[60vh] grid place-items-center px-6">
