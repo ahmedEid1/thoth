@@ -12,8 +12,8 @@
 [![Public evals](https://img.shields.io/badge/evals-public-C9A961?style=flat-square)](https://thoth-slr.vercel.app/evals)
 [![MCP Registry](https://img.shields.io/badge/MCP-registered-orange?style=flat-square)](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-312%20passing-success?style=flat-square)](#)
-[![Status](https://img.shields.io/badge/status-v0.7.1-informational?style=flat-square)](#)
+[![Tests](https://img.shields.io/badge/tests-326%20passing-success?style=flat-square)](#)
+[![Status](https://img.shields.io/badge/status-v1.0.0-informational?style=flat-square)](#)
 [![Deploy cost](https://img.shields.io/badge/deploy-%240%2Fmo-brightgreen?style=flat-square)](#)
 
 `agentic-ai` · `langgraph` · `systematic-literature-review` · `mcp-server` · `oauth-2.1` · `next.js` · `prisma` · `trigger.dev` · `clerk` · `cite-check`
@@ -35,11 +35,11 @@ Thoth turns a research question and a corpus of PDFs into an evidence-grounded l
 | **Live app** | [thoth-slr.vercel.app](https://thoth-slr.vercel.app) (Clerk sign-in) |
 | **Public eval dashboard** | [`/evals`](https://thoth-slr.vercel.app/evals) — recall/precision/faithfulness/coverage over a 17-question versioned golden set (14 real-paper SLR questions across LLM/ML/SE + 3 synthetic seeds), refreshed weekly via CI |
 | **Official MCP Registry entry** | [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth) — `status: active` |
-| **Tests** | 312 unit/integration + 3 live e2e MCP smoke checks, all green; tsc + lint clean |
+| **Tests** | 326 unit/integration + 3 live e2e MCP smoke checks, all green; tsc + lint clean |
 | **Audit log** | Every MCP tool call recorded in `McpCall` with SHA-256 input hash; no raw input ever stored |
 | **Deploy cost** | $0 / month (Vercel + Neon + Cloudflare R2 + Langfuse Cloud + Trigger.dev Cloud — all free tiers) |
 | **Self-host fallback** | One-VM deploy on Oracle Cloud Always Free (4 ARM cores, 24 GB RAM) — [`docs/self-host/`](docs/self-host/oracle-cloud-quickstart.md) |
-| **Status** | `v0.7.1` shipped 2026-05-24 · M6 (30-question eval set + public launch) next |
+| **Status** | `v1.0.0` shipped 2026-05-24 · engineering complete; next cycle is distribution |
 
 ## What makes Thoth different
 
@@ -106,7 +106,7 @@ See [`.env.example`](.env.example) for the full env-var list. Non-obvious ones: 
 ## Tests
 
 ```bash
-pnpm test                                                                # 312 unit/integration tests
+pnpm test                                                                # 326 unit/integration tests
 PLAYWRIGHT_BASE_URL=https://thoth-slr.vercel.app pnpm playwright test tests/e2e/mcp-smoke.spec.ts  # 3 live e2e
 pnpm tsx scripts/verify-mcp-audit.ts                                     # spot-check the McpCall audit log
 ```
@@ -151,7 +151,8 @@ The full design is at [`docs/superpowers/specs/thoth-design.md`](docs/superpower
 - ~~**v0.5.1** — First live end-to-end review on prod~~ ✅ — Real PDF (ReAct paper) → full SLR pipeline → completed draft + critic + cite_check
 - ~~**v0.7.0-m5** — Authenticated MCP server~~ ✅ — Streamable HTTP at `/api/mcp/mcp`, OAuth 2.1 + PKCE + DCR via Clerk, 3 read-only tools, audit log + rate limits, published to the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth) as `io.github.ahmedEid1/thoth`
 - ~~**v0.7.1** — Post-M5 hardening + ibis brand + anonymous demo~~ ✅ — Cost cap on every agent node (per-run token budget), 2-phase commit-then-deliver for HITL gates (exactly-once via Postgres advisory lock + Trigger.dev idempotent `wait.completeToken`), cron outbox + UI retry for stranded checkpoints, security headers, MCP `ToolAnnotations`, accessibility pass (skip-link, contrast, focus rings), Delapouite ibis identity + papyrus design tokens, `/api/demo/start` + `/demo/handoff` for one-click anonymous trial (no pre-cloned sample — guests build their own review)
-- **M6** (next) — 30-question real-paper golden eval set, recruiter 1-pager, public launch (HN / LinkedIn / Twitter)
+- ~~**v1.0.0** — Engineering complete~~ ✅ — 14 real-paper goldens (`/evals` now 17 questions covering LLM / ML / SE literature), weekly CI eval workflow with regression gate (`.github/workflows/evals.yml`), pinned exemplar review at `/showcase` (no-LLM-required, shows cite_check catching fabricated citations), `DEMO_DISABLED` operator kill switch + `/admin/guests` observability, char-based token estimate so cost cap engages on the claude-agent provider, one-shot `LLM_FALLBACK_PROVIDER` for Mistral 5xx → Groq resilience, `McpCall.userId` FK with cascade, `docs/security-and-privacy.md` evidence page for the GDPR-friendly claim, `/for-recruiters` in-app overview
+- **Next cycle** — Distribution: 90-second demo recording, recruiter outreach, optional public launch (HN / LinkedIn / Twitter). Engineering work paused; this is a portfolio + real-artifact handoff.
 
 ## For recruiters
 
