@@ -155,9 +155,13 @@ model HumanCheckpoint {
   waitToken   String?          @unique
   createdAt   DateTime         @default(now())
   decidedAt   DateTime?
+  attemptCount          Int       @default(0)
+  lastDeliveryAttemptAt DateTime?
+  terminalError         String?
 
   @@index([runId])
   @@index([status])
+  @@index([waitToken, terminalError, lastDeliveryAttemptAt])
 }
 
 model IncludedPaper {

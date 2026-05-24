@@ -275,6 +275,79 @@ describe("POST /api/demo/start — origin / referer guard (production only)", ()
     }
   });
 
+  it("ignores malicious x-forwarded-proto values like 'https://attacker.example' and falls back to the host heuristic", async () => {
+    // Regression: an earlier impl interpolated x-forwarded-proto raw into
+    // `${proto}://${host}/dashboard`. A value like "https://attacker.example"
+    // produced "https://attacker.example://localhost/dashboard", which
+    // parses with .origin === "https://attacker.example" — the guest
+    // would be redirected off-site. Sanitization must reject anything
+    // that isn't exactly "http" or "https".
+    wireHappyPath();
+    const res = await POST(
+      new Request("http://localhost/api/demo/start", {
+        method: "POST",
+        headers: {
+          "x-forwarded-for": "203.0.113.90",
+          host: "localhost",
+          "x-forwarded-proto": "https://attacker.example",
+        },
+      }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    // Malicious proto rejected → falls back to "http" because host is localhost.
+    expect(body.signInUrl).toContain(
+      `redirect_url=${encodeURIComponent("http://localhost/dashboard")}`,
+    );
+    expect(body.signInUrl).not.toContain("attacker.example");
+  });
+
+  it("uses the FIRST token from a comma-separated x-forwarded-proto chain", async () => {
+    // Proxies sometimes concatenate proto headers across hops ("https,http").
+    // The previous impl interpolated the whole chain, producing the
+    // invalid URL "https,http://thoth.app/dashboard". Sanitization splits
+    // on comma and takes the first valid value.
+    wireHappyPath();
+    const res = await POST(
+      new Request("http://localhost/api/demo/start", {
+        method: "POST",
+        headers: {
+          "x-forwarded-for": "203.0.113.91",
+          host: "thoth.app",
+          "x-forwarded-proto": "https,http",
+        },
+      }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.signInUrl).toContain(
+      `redirect_url=${encodeURIComponent("https://thoth.app/dashboard")}`,
+    );
+  });
+
+  it("rejects non-http/https protos (javascript:, file:) and falls back to the host heuristic", async () => {
+    for (const bad of ["javascript:", "file:", "data:", "ftp"]) {
+      wireHappyPath();
+      const res = await POST(
+        new Request("http://localhost/api/demo/start", {
+          method: "POST",
+          headers: {
+            "x-forwarded-for": `203.0.113.${100 + bad.length}`,
+            host: "localhost",
+            "x-forwarded-proto": bad,
+          },
+        }),
+      );
+      expect(res.status).toBe(201);
+      const body = await res.json();
+      // All bad protos rejected → localhost fallback wins.
+      expect(body.signInUrl).toContain(
+        `redirect_url=${encodeURIComponent("http://localhost/dashboard")}`,
+      );
+      _resetRateLimitForTest();
+    }
+  });
+
   it("allows a same-origin request in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
     try {
