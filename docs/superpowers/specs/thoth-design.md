@@ -1,6 +1,6 @@
 # Thoth — Design
 
-**Status:** Authoritative design (matches code at `v0.7.1`)
+**Status:** Authoritative design (matches code at `v1.0.0`)
 **Owner:** Ahmed Hobeishy
 
 ---

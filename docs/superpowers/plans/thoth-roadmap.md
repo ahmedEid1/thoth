@@ -1,6 +1,6 @@
 # Thoth build roadmap
 
-Build order from M1 through current, with the load-bearing files for each milestone. The full design lives at `docs/superpowers/specs/thoth-design.md`. Release process is in `RELEASING.md`. Current tag: `v0.7.1` (shipped 2026-05-24). Next: M6.
+Build order from M1 through current, with the load-bearing files for each milestone. The full design lives at `docs/superpowers/specs/thoth-design.md`. Release process is in `RELEASING.md`. Current tag: `v1.0.0` (shipped 2026-05-24). Engineering complete; next cycle is distribution.
 
 ## M1 — Workspace foundation
 
@@ -185,14 +185,37 @@ Build order from M1 through current, with the load-bearing files for each milest
 
 **Tag:** `v0.7.1`
 
-## M6 — Public launch (next)
+## v1.0.0 — Engineering complete
 
-**Goal:** Make Thoth's quality story legible to non-builders so the public launch lands.
+**Goal:** Close every remaining engineering gap before handing off to a distribution cycle. Ten focused items derived from a parallel V1 brainstorm via Codex + Claude.
 
-**What will ship:**
-- 30-question golden eval set drawn from real published SLRs (replacing the 10-question synthetic v1)
-- Recruiter 1-pager: single-page artefact pointing at the live app, public evals, MCP demo, and registry listing
-- Public launch surface: HN / LinkedIn / Twitter posts timed to the recruiter pager going live
+**What shipped:**
+- 14 real-paper golden eval questions sourced from arXiv + SE literature (003-016), bringing `/evals` to 17 total — every paper backed to a working arXiv ID or journal DOI
+- Weekly CI eval workflow at `.github/workflows/evals.yml`: pnpm eval + pnpm eval:check on Monday 06:00 UTC + workflow_dispatch trigger, with the regression gate failing the run on a >10% metric drop
+- Pinned exemplar review at `/showcase`: hand-curated, no-LLM-required, deliberately includes 2 UNSUPPORTED cite_check verdicts so the audit's value is visible without sign-in. Seeded via `pnpm seed:showcase`
+- DEMO_DISABLED operator kill switch + `/admin/guests` observability page (allow-list via ADMIN_EMAILS env, returns 404 to non-admins to avoid leaking existence)
+- Char-based token estimate for the claude-agent provider so `lib/agent/cost-cap.ts` engages on every provider rather than silently no-op'ing on CLI-routed calls
+- One-shot LLM provider fallback (LLM_FALLBACK_PROVIDER, default off): primary provider 5xx → single retry on the fallback with provider tag rewritten in OTel telemetry
+- McpCall.userId foreign key with cascade delete (migration 20260524200000_mcp_call_user_fk) — audit log integrity tied to user lifecycle
+- `docs/security-and-privacy.md`: 8-section evidence page behind the GDPR-friendly claim — data inventory, jurisdiction, retention, deletion paths, auth model, known limits
+- `app/for-recruiters/page.tsx`: in-app one-pager covering 8 skill cards each linking to the load-bearing file. Public, not promoted
+- Release ceremony — `package.json` / `server.json` / MCP serverInfo bumped to 1.0.0, README + roadmap + design doc updated, MCP Registry republish handled by the maintainer via `pnpm exec mcp-publisher publish`
+
+**Key files:** `evals/golden/{003..016}-*.yaml`, `.github/workflows/evals.yml`, `scripts/seed-showcase-review.ts`, `app/showcase/page.tsx`, `app/admin/guests/page.tsx`, `lib/admin.ts`, `lib/llm.ts` (claude-agent estimate + fallback path), `prisma/migrations/20260524200000_mcp_call_user_fk/migration.sql`, `docs/security-and-privacy.md`, `app/for-recruiters/page.tsx`
+
+**Tag:** `v1.0.0`
+
+## Next cycle — distribution
+
+Out of scope for this build cycle, but the next sensible work:
+
+- 90-second Loom recording of the cite_check flow end-to-end
+- Recruiter outreach (3-5 targeted EU applications, paired with the `/for-recruiters` URL)
+- Optional public launch: HN / LinkedIn / Twitter, lead copy on cite_check (universal hook) rather than MCP (niche)
+
+No engineering items currently planned past v1.0.0. The dormant
+`lib/demo/clone-review.ts` stays in tree in case a future "tour the
+sample data" flow is wanted; otherwise the build cycle is closed.
 
 ## Standards across the build
 
