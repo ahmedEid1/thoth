@@ -4,7 +4,7 @@ export type ProviderName = "gemini" | "anthropic" | "openai" | "groq" | "claude-
 const MODELS: Record<ProviderName, Record<Tier, string>> = {
   gemini: {
     // smart and fast both use Flash on Gemini: gemini-2.5-pro is paywalled (not on free tier)
-    // and Atlas's $0 budget requires the free tier. Other providers keep the smart/fast split.
+    // and Thoth's $0 budget requires the free tier. Other providers keep the smart/fast split.
     smart: "gemini-2.5-flash",
     fast: "gemini-2.5-flash",
   },
@@ -21,7 +21,7 @@ const MODELS: Record<ProviderName, Record<Tier, string>> = {
     // gpt-oss-* are the only Groq models with strict json_schema support
     // (required by generateObject's Zod validation). 120b hits Groq's
     // 8K TPM on multi-paper questions; 20b has higher TPM and handles
-    // Atlas's schemas reliably. Both free tier.
+    // Thoth's schemas reliably. Both free tier.
     smart: "openai/gpt-oss-20b",
     fast: "openai/gpt-oss-20b",
   },

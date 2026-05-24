@@ -60,7 +60,7 @@ describe("summarize-paper task", () => {
         studyType: "empirical",
         relevanceToSLR: "highly_relevant",
       },
-      traceUrl: "http://localhost:3030/project/atlas-dev/traces/trace_abc",
+      traceUrl: "http://localhost:3030/project/thoth-dev/traces/trace_abc",
       usage: {
         inputTokens: 100,
         outputTokens: 50,
@@ -84,14 +84,14 @@ describe("summarize-paper task", () => {
     const finalData = (finalCall[0] as { data: Record<string, unknown> }).data;
     expect(finalData.summary).toEqual(expect.objectContaining({ studyType: "empirical" }));
     expect(finalData.summaryTraceUrl).toBe(
-      "http://localhost:3030/project/atlas-dev/traces/trace_abc",
+      "http://localhost:3030/project/thoth-dev/traces/trace_abc",
     );
     expect(finalData.summarisedAt).toBeInstanceOf(Date);
 
     expect(result).toEqual(
       expect.objectContaining({
         ok: true,
-        traceUrl: "http://localhost:3030/project/atlas-dev/traces/trace_abc",
+        traceUrl: "http://localhost:3030/project/thoth-dev/traces/trace_abc",
       }),
     );
   });

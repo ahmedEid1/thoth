@@ -21,14 +21,14 @@ import { resolveMcpUser, McpAuthError } from "@/lib/mcp/auth";
 beforeEach(() => vi.clearAllMocks());
 
 describe("resolveMcpUser", () => {
-  it("returns Atlas User.id when JWT is valid and user exists", async () => {
+  it("returns Thoth User.id when JWT is valid and user exists", async () => {
     vi.mocked(auth).mockResolvedValue({ tokenType: "oauth_token" } as never);
     vi.mocked(verifyClerkToken).mockResolvedValue({ token: "t", clientId: "c", scopes: ["profile","email"], extra: { userId: "user_clerk_abc" } } as never);
-    vi.mocked(db.user.findUnique).mockResolvedValue({ id: "atlas_user_xyz", clerkId: "user_clerk_abc" } as never);
+    vi.mocked(db.user.findUnique).mockResolvedValue({ id: "thoth_user_xyz", clerkId: "user_clerk_abc" } as never);
 
     const ctx = await resolveMcpUser("fake-jwt");
 
-    expect(ctx).toEqual({ userId: "atlas_user_xyz", clerkId: "user_clerk_abc" });
+    expect(ctx).toEqual({ userId: "thoth_user_xyz", clerkId: "user_clerk_abc" });
   });
 
   it("throws McpAuthError when verifyClerkToken returns null subject", async () => {

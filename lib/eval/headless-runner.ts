@@ -18,7 +18,7 @@ export type HeadlessRunResult = AgentState & {
 const MAX_SEGMENTS = 6; // 1 initial + up to 2 HITL gates + up to 2 critic loops + 1 cite_check buffer
 
 /**
- * Drives Atlas's M3+M4a LangGraph in-process, auto-approving every HITL gate
+ * Drives Thoth's M3+M4a LangGraph in-process, auto-approving every HITL gate
  * so the run completes without external intervention. Used by the eval harness.
  *
  * Does NOT use Trigger.dev, durable checkpointing across worker restarts, or

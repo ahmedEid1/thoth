@@ -1,5 +1,5 @@
 /**
- * Atlas eval metrics. All return a score in [0, 1].
+ * Thoth eval metrics. All return a score in [0, 1].
  * Vacuous-true convention: returns 1.0 when the "expected" set is empty so an
  * eval question that doesn't assert on this metric doesn't drag the average down.
  */
