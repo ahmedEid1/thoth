@@ -3,7 +3,6 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createRun, setRunStatus } from "@/lib/agent/runs";
 import { enqueueRunReview } from "@/lib/trigger-client";
-import { guestWriteBlock } from "@/lib/demo/guards";
 
 export async function POST(
   _req: NextRequest,
@@ -11,9 +10,6 @@ export async function POST(
 ) {
   const user = await requireUser().catch(() => null);
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
-
-  const blocked = guestWriteBlock(user);
-  if (blocked) return blocked;
 
   const { id } = await params;
   const project = await db.project.findUnique({ where: { id } });

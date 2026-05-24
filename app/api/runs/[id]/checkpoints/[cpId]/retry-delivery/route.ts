@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { guestWriteBlock } from "@/lib/demo/guards";
 import { deliverCheckpoint } from "@/lib/agent/checkpoint-delivery";
 
 /**
@@ -24,9 +23,6 @@ export async function POST(
 ) {
   const user = await requireUser().catch(() => null);
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
-
-  const blocked = guestWriteBlock(user);
-  if (blocked) return blocked;
 
   const { cpId } = await params;
   // Ownership check — same pattern as approve/reject.

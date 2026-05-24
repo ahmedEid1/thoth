@@ -1,25 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 vi.mock("@/lib/env", () => ({
-  env: { DEMO_TEMPLATE_PROJECT_ID: "", IP_HASH_SALT: "test-salt" },
+  env: { IP_HASH_SALT: "test-salt" },
 }));
 vi.mock("@/lib/db", () => ({
   db: {
-    project: { findUnique: vi.fn(), delete: vi.fn() },
-    user: { create: vi.fn(), findUniqueOrThrow: vi.fn(), delete: vi.fn() },
-    $transaction: vi.fn(),
+    user: { create: vi.fn(), delete: vi.fn() },
   },
-}));
-vi.mock("@/lib/demo/clone-review", () => ({
-  cloneReviewTemplate: vi.fn(),
 }));
 vi.mock("@clerk/nextjs/server", () => ({
   clerkClient: vi.fn(),
 }));
 
-import { env } from "@/lib/env";
 import { db } from "@/lib/db";
-import { cloneReviewTemplate } from "@/lib/demo/clone-review";
 import { clerkClient } from "@clerk/nextjs/server";
 import { _resetRateLimitForTest } from "@/lib/demo/rate-limit";
 import { POST } from "@/app/api/demo/start/route";
@@ -30,9 +23,8 @@ function buildRequest(
 ): Request {
   const headers: Record<string, string> = {
     "x-forwarded-for": opts.ip ?? "203.0.113.99",
-    // `host` is needed to build the absolute redirect_url for the
-    // Clerk sign-in ticket. Node's Request constructor doesn't
-    // auto-populate it from the URL, so we set it explicitly here.
+    // Node's Request constructor doesn't auto-populate `host` from the
+    // URL; the route needs it to build the absolute /demo/handoff URL.
     host: opts.host ?? "localhost",
   };
   if (opts.origin) headers.origin = opts.origin;
@@ -47,60 +39,16 @@ function buildRequest(
  * Build a fresh suite of Clerk + DB mocks wired for a successful path.
  * Individual tests can override any mock before calling POST.
  */
-function wireHappyPath(opts: {
-  cloneShouldThrow?: boolean;
-  txShouldThrow?: boolean;
-  deleteUserImpl?: ReturnType<typeof vi.fn>;
-  projectDeleteImpl?: ReturnType<typeof vi.fn>;
-  userDeleteImpl?: ReturnType<typeof vi.fn>;
-} = {}) {
-  (env as { DEMO_TEMPLATE_PROJECT_ID: string }).DEMO_TEMPLATE_PROJECT_ID = "p_template";
-  vi.mocked(db.project.findUnique).mockResolvedValue({ id: "p_template" } as never);
-  vi.mocked(db.project.delete).mockImplementation(
-    (opts.projectDeleteImpl ?? vi.fn().mockResolvedValue({})) as never,
-  );
-  vi.mocked(db.user.delete).mockImplementation(
-    (opts.userDeleteImpl ?? vi.fn().mockResolvedValue({})) as never,
-  );
-
-  // $transaction(cb, opts) — call the callback with a stub tx that has a
-  // user.create returning the seeded atlas user. Throw if requested.
-  vi.mocked(db.$transaction).mockImplementation(
-    async (cb: unknown) => {
-      if (opts.txShouldThrow) {
-        // Simulate the clone failing inside the tx by either calling cb
-        // through to a tx where cloneReviewTemplate is mocked-to-throw,
-        // OR throwing directly. We'll go through cb so callers can see
-        // the failure surface like a real Prisma rollback would.
-        const tx = {
-          user: { create: vi.fn().mockResolvedValue({ id: "u_atlas_xyz" }) },
-        };
-        try {
-          return await (cb as (t: unknown) => unknown)(tx);
-        } catch (e) {
-          throw e;
-        }
-      }
-      const tx = {
-        user: { create: vi.fn().mockResolvedValue({ id: "u_atlas_xyz" }) },
-      };
-      return (cb as (t: unknown) => unknown)(tx);
-    },
-  );
-
-  if (opts.cloneShouldThrow) {
-    vi.mocked(cloneReviewTemplate).mockRejectedValue(new Error("clone exploded"));
-  } else {
-    vi.mocked(cloneReviewTemplate).mockResolvedValue({ projectId: "p_clone" });
-  }
+function wireHappyPath(opts: { deleteUserImpl?: ReturnType<typeof vi.fn> } = {}) {
+  vi.mocked(db.user.create).mockResolvedValue({ id: "u_atlas_xyz" } as never);
+  vi.mocked(db.user.delete).mockResolvedValue({} as never);
 
   const createUser = vi.fn().mockResolvedValue({ id: "user_clerk_xyz" });
   const deleteUser = opts.deleteUserImpl ?? vi.fn().mockResolvedValue({});
   const createSignInToken = vi.fn().mockResolvedValue({
-    // The route now reads ticket.token (handed to our /demo/handoff
-    // page) rather than ticket.url (which routed through Clerk's
-    // accounts.dev handoff). Both fields are present on the real
-    // response; the mock includes both for forward-compat.
+    // The route reads ticket.token (handed to /demo/handoff). ticket.url
+    // also comes back on the real response — included on the mock for
+    // forward-compat with anything that may inspect it.
     token: "tk_xyz",
     url: "https://clerk.example.com/v1/tickets?ticket=tk_xyz",
   });
@@ -115,47 +63,29 @@ function wireHappyPath(opts: {
 beforeEach(() => {
   vi.clearAllMocks();
   _resetRateLimitForTest();
-  (env as { DEMO_TEMPLATE_PROJECT_ID: string }).DEMO_TEMPLATE_PROJECT_ID = "";
-});
-
-describe("POST /api/demo/start — config / template guards", () => {
-  it("returns 503 when DEMO_TEMPLATE_PROJECT_ID is unset", async () => {
-    (env as { DEMO_TEMPLATE_PROJECT_ID: string }).DEMO_TEMPLATE_PROJECT_ID = "";
-    const res = await POST(buildRequest({ ip: "10.0.0.1" }));
-    expect(res.status).toBe(503);
-    const body = await res.json();
-    expect(body.error).toBe("demo_not_configured");
-  });
-
-  it("returns 503 when the template project does not exist", async () => {
-    (env as { DEMO_TEMPLATE_PROJECT_ID: string }).DEMO_TEMPLATE_PROJECT_ID = "p_missing";
-    vi.mocked(db.project.findUnique).mockResolvedValue(null);
-    const res = await POST(buildRequest({ ip: "10.0.0.2" }));
-    expect(res.status).toBe(503);
-    const body = await res.json();
-    expect(body.error).toBe("demo_template_missing");
-  });
 });
 
 describe("POST /api/demo/start — happy path", () => {
-  it("creates a guest user, clones the template, and returns a sign-in URL", async () => {
+  it("creates a guest Clerk user, a local User row, and returns a handoff URL", async () => {
     const { createUser } = wireHappyPath();
 
     const res = await POST(buildRequest({ ip: "10.0.0.3" }));
     expect(res.status).toBe(201);
     const body = await res.json();
-    // signInUrl now points at our own /demo/handoff page (not Clerk's
-    // accounts.dev ticket URL). Clerk's ticket URL bounced dev instances
-    // to a "Welcome — Clerk cannot redirect" default-redirect page; doing
-    // the ticket consumption client-side via signIn.ticket() avoids that
-    // and gives us a branded loading state.
+
+    // signInUrl points at our own /demo/handoff page (not Clerk's
+    // accounts.dev ticket URL). Clerk's ticket URL bounced dev
+    // instances to /default-redirect; consuming the ticket client-side
+    // via signIn.create() avoids that and gives us a branded loading
+    // state.
     expect(body.signInUrl).toContain("/demo/handoff");
     expect(body.signInUrl).toContain("ticket=tk_xyz");
-    // The handoff URL must be ABSOLUTE so it works after a window.location
-    // redirect from any origin. Built from the request's host header
-    // (defaults to "localhost" in this test runtime).
+    // Absolute URL — the host header drives the origin so it works
+    // identically across localhost, preview deploys, and production.
     expect(body.signInUrl).toMatch(/^http:\/\/localhost\/demo\/handoff\?ticket=/);
 
+    // Clerk user is created with the guest flag in publicMetadata so
+    // the cleanup cron can find it.
     expect(createUser).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAddress: [expect.stringMatching(/^thoth-guest-[a-f0-9]{12}@example\.com$/)],
@@ -163,16 +93,16 @@ describe("POST /api/demo/start — happy path", () => {
         publicMetadata: { isGuest: true, source: "demo-button" },
       }),
     );
-    expect(cloneReviewTemplate).toHaveBeenCalledWith(
+
+    // Local User row is mirrored with isGuest=true.
+    expect(db.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        templateProjectId: "p_template",
-        targetOwnerId: "u_atlas_xyz",
+        data: expect.objectContaining({
+          clerkId: "user_clerk_xyz",
+          isGuest: true,
+        }),
       }),
     );
-    // The clone is called WITH a tx (so the local User + clone share a
-    // transaction) — assert that the tx param is present.
-    const cloneArgs = vi.mocked(cloneReviewTemplate).mock.calls[0]![0];
-    expect(cloneArgs.tx).toBeDefined();
   });
 });
 
@@ -217,10 +147,9 @@ describe("POST /api/demo/start — origin / referer guard (production only)", ()
   });
 
   it("rejects a malicious-suffix Origin like host.evil.tld (no startsWith bypass)", async () => {
-    // Regression: an earlier impl used `origin.startsWith("https://" + host)`
-    // which let `https://demo.thoth.app.evil.tld` slip past because it
-    // string-starts-with `https://demo.thoth.app`. The fix parses
-    // Origin through `new URL().origin` so the comparison is exact.
+    // Regression: earlier impl used origin.startsWith("https://" + host)
+    // which let `https://demo.thoth.app.evil.tld` slip past. The fix
+    // parses Origin through new URL().origin so the comparison is exact.
     vi.stubEnv("NODE_ENV", "production");
     try {
       wireHappyPath();
@@ -243,12 +172,10 @@ describe("POST /api/demo/start — origin / referer guard (production only)", ()
   });
 
   it("does not consume rate-limit budget on cross-origin reject", async () => {
-    // Regression: an earlier impl ran the rate-limit check BEFORE the
-    // origin check, which meant a cross-site POST from a victim's
-    // browser would still drain the victim IP's per-hour bucket even
-    // though the request got rejected — DoS amplifier. With the origin
-    // check first, 10 cross-origin attempts must NOT eat into the
-    // bucket; a follow-up same-origin request from the same IP still
+    // Regression: earlier impl ran rate-limit BEFORE origin, so cross-
+    // site POSTs from a victim's browser drained the victim IP's bucket
+    // — DoS amplifier. With origin first, 10 cross-origin attempts must
+    // NOT eat into the bucket; a follow-up same-origin request still
     // succeeds.
     vi.stubEnv("NODE_ENV", "production");
     try {
@@ -283,13 +210,11 @@ describe("POST /api/demo/start — origin / referer guard (production only)", ()
     }
   });
 
-  it("ignores malicious x-forwarded-proto values like 'https://attacker.example' and falls back to the host heuristic", async () => {
-    // Regression: an earlier impl interpolated x-forwarded-proto raw into
-    // `${proto}://${host}/dashboard`. A value like "https://attacker.example"
-    // produced "https://attacker.example://localhost/dashboard", which
-    // parses with .origin === "https://attacker.example" — the guest
-    // would be redirected off-site. Sanitization must reject anything
-    // that isn't exactly "http" or "https".
+  it("ignores malicious x-forwarded-proto values like 'https://attacker.example'", async () => {
+    // Regression: earlier impl interpolated x-forwarded-proto raw into
+    // `${proto}://${host}`. A value like "https://attacker.example"
+    // would have steered the redirect off-site. Sanitization rejects
+    // anything that isn't exactly "http" or "https".
     wireHappyPath();
     const res = await POST(
       new Request("http://localhost/api/demo/start", {
@@ -303,16 +228,11 @@ describe("POST /api/demo/start — origin / referer guard (production only)", ()
     );
     expect(res.status).toBe(201);
     const body = await res.json();
-    // Malicious proto rejected → falls back to "http" because host is localhost.
     expect(body.signInUrl).toMatch(/^http:\/\/localhost\/demo\/handoff\?ticket=/);
     expect(body.signInUrl).not.toContain("attacker.example");
   });
 
   it("uses the FIRST token from a comma-separated x-forwarded-proto chain", async () => {
-    // Proxies sometimes concatenate proto headers across hops ("https,http").
-    // The previous impl interpolated the whole chain, producing the
-    // invalid URL "https,http://thoth.app/dashboard". Sanitization splits
-    // on comma and takes the first valid value.
     wireHappyPath();
     const res = await POST(
       new Request("http://localhost/api/demo/start", {
@@ -344,7 +264,6 @@ describe("POST /api/demo/start — origin / referer guard (production only)", ()
       );
       expect(res.status).toBe(201);
       const body = await res.json();
-      // All bad protos rejected → localhost fallback wins.
       expect(body.signInUrl).toMatch(/^http:\/\/localhost\/demo\/handoff\?ticket=/);
       _resetRateLimitForTest();
     }
@@ -373,8 +292,6 @@ describe("POST /api/demo/start — origin / referer guard (production only)", ()
 
 describe("POST /api/demo/start — compensation on partial failure", () => {
   it("returns 500 with a generic message on initial Clerk failure (no compensation needed)", async () => {
-    (env as { DEMO_TEMPLATE_PROJECT_ID: string }).DEMO_TEMPLATE_PROJECT_ID = "p_template";
-    vi.mocked(db.project.findUnique).mockResolvedValue({ id: "p_template" } as never);
     const deleteUser = vi.fn();
     vi.mocked(clerkClient).mockResolvedValue({
       users: {
@@ -394,39 +311,26 @@ describe("POST /api/demo/start — compensation on partial failure", () => {
     expect(deleteUser).not.toHaveBeenCalled();
   });
 
-  it("rolls back the Clerk user when the cloneReviewTemplate step throws", async () => {
-    const { deleteUser } = wireHappyPath({ cloneShouldThrow: true });
+  it("rolls back the Clerk user when db.user.create throws", async () => {
+    const { deleteUser } = wireHappyPath();
+    vi.mocked(db.user.create).mockRejectedValue(new Error("db down"));
 
     const res = await POST(buildRequest({ ip: "10.0.0.51" }));
     expect(res.status).toBe(500);
 
-    // The local DB transaction rolled back automatically (clone threw
-    // inside it), so we should NOT have called db.user.delete or
-    // db.project.delete — but the Clerk user IS a real side effect and
-    // must be cleaned up.
+    // Clerk user is a real side effect that must be cleaned up.
     expect(deleteUser).toHaveBeenCalledWith("user_clerk_xyz");
+    // db.user.create threw → no atlas user row to delete.
     expect(db.user.delete).not.toHaveBeenCalled();
-    expect(db.project.delete).not.toHaveBeenCalled();
   });
 
-  it("rolls back Clerk + Project + Atlas user when the sign-in-token step throws", async () => {
-    // Wire the happy path, then override createSignInToken to throw so
-    // the failure happens AFTER the local-DB transaction committed.
+  it("rolls back Clerk + atlas user when createSignInToken throws", async () => {
     const createUser = vi.fn().mockResolvedValue({ id: "user_clerk_xyz" });
     const deleteUser = vi.fn().mockResolvedValue({});
     const createSignInToken = vi.fn().mockRejectedValue(new Error("ticket service down"));
 
-    (env as { DEMO_TEMPLATE_PROJECT_ID: string }).DEMO_TEMPLATE_PROJECT_ID = "p_template";
-    vi.mocked(db.project.findUnique).mockResolvedValue({ id: "p_template" } as never);
-    vi.mocked(db.project.delete).mockResolvedValue({} as never);
+    vi.mocked(db.user.create).mockResolvedValue({ id: "u_atlas_xyz" } as never);
     vi.mocked(db.user.delete).mockResolvedValue({} as never);
-    vi.mocked(cloneReviewTemplate).mockResolvedValue({ projectId: "p_clone" });
-    vi.mocked(db.$transaction).mockImplementation(async (cb: unknown) => {
-      const tx = {
-        user: { create: vi.fn().mockResolvedValue({ id: "u_atlas_xyz" }) },
-      };
-      return (cb as (t: unknown) => unknown)(tx);
-    });
     vi.mocked(clerkClient).mockResolvedValue({
       users: { createUser, deleteUser },
       signInTokens: { createSignInToken },
@@ -435,17 +339,18 @@ describe("POST /api/demo/start — compensation on partial failure", () => {
     const res = await POST(buildRequest({ ip: "10.0.0.52" }));
     expect(res.status).toBe(500);
 
-    // All three side effects must be compensated, in reverse order.
-    expect(db.project.delete).toHaveBeenCalledWith({ where: { id: "p_clone" } });
+    // Both side effects must be compensated, atlas user first then Clerk.
     expect(db.user.delete).toHaveBeenCalledWith({ where: { id: "u_atlas_xyz" } });
     expect(deleteUser).toHaveBeenCalledWith("user_clerk_xyz");
   });
 
   it("does not let a compensation failure mask the original error", async () => {
-    // Clone throws → only Clerk user exists. Make the Clerk-delete also
-    // throw. We should still get the 500 response, not a different error.
+    // db.user.create throws → only Clerk user exists. Make the Clerk-
+    // delete also throw. We should still get the 500 response, not a
+    // different error.
     const deleteUser = vi.fn().mockRejectedValue(new Error("clerk also down"));
-    wireHappyPath({ cloneShouldThrow: true, deleteUserImpl: deleteUser });
+    wireHappyPath({ deleteUserImpl: deleteUser });
+    vi.mocked(db.user.create).mockRejectedValue(new Error("db exploded"));
 
     const res = await POST(buildRequest({ ip: "10.0.0.53" }));
     expect(res.status).toBe(500);

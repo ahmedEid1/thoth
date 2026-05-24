@@ -87,8 +87,8 @@ export function DemoCtaButton() {
         )}
       </button>
       <p className="text-xs text-[var(--thoth-stone)] max-w-xs">
-        No sign-up. We mint a 24-hour guest account preloaded with the ReAct
-        paper review — draft, scores, and the full cite_check audit.
+        No sign-up. We mint a 24-hour guest account so you can start a
+        review with your own PDFs and see cite_check fire in real time.
       </p>
       {error && (
         <div
