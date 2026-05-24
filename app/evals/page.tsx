@@ -5,10 +5,26 @@ import { QuestionRow } from "@/components/evals/QuestionRow";
 export const dynamic = "force-dynamic"; // always fresh
 
 const METRICS = [
-  { key: "citation_recall", label: "Citation recall" },
-  { key: "citation_precision", label: "Citation precision" },
-  { key: "claim_faithfulness", label: "Claim faithfulness" },
-  { key: "expected_claim_coverage", label: "Expected-claim coverage" },
+  {
+    key: "citation_recall",
+    label: "Citation recall",
+    short: "Did the agent find the papers it should have?",
+  },
+  {
+    key: "citation_precision",
+    label: "Citation precision",
+    short: "Of the papers it cited, how many were the right ones?",
+  },
+  {
+    key: "claim_faithfulness",
+    label: "Claim faithfulness",
+    short: "Are its claims actually supported by the papers it cites?",
+  },
+  {
+    key: "expected_claim_coverage",
+    label: "Expected-claim coverage",
+    short: "Does the draft mention the canonical findings reviewers expect?",
+  },
 ] as const;
 
 export default async function EvalsPage() {
@@ -99,6 +115,7 @@ export default async function EvalsPage() {
             key={m.key}
             label={m.label}
             value={aggregate[m.key] ?? 0}
+            description={m.short}
           />
         ))}
       </section>
@@ -163,6 +180,154 @@ export default async function EvalsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* HOW THIS WORKS ─────────────────────────────────────────────── */}
+      <section className="mb-16">
+        <div className="mb-6">
+          <h2 className="font-display text-2xl font-medium text-[var(--thoth-blue-ink)]">
+            How this works
+          </h2>
+          <p className="mt-2 text-sm text-[var(--thoth-stone)] max-w-2xl leading-relaxed">
+            Why the dashboard exists, how a number gets here, and what each
+            metric is actually measuring.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          <article className="bg-[oklch(1_0_0)] border border-[var(--thoth-rule)] rounded-lg p-6">
+            <p className="eyebrow mb-3">Lifecycle</p>
+            <ol className="space-y-3 text-sm text-[var(--thoth-ink)] leading-relaxed list-decimal list-outside ml-5">
+              <li>
+                Each golden lives in{" "}
+                <code className="font-mono text-[0.85em] text-[var(--thoth-blue)]">
+                  evals/golden/*.yaml
+                </code>{" "}
+                — a question, a small expected corpus, and a list of claims
+                a competent reviewer would surface.
+              </li>
+              <li>
+                A scheduled GitHub Action (Monday 06:00 UTC, also manually
+                triggerable) runs the full Thoth agent loop —{" "}
+                <em>plan → retrieve → assess → draft → cite-check</em> —
+                headlessly against every golden.
+              </li>
+              <li>
+                Each run writes one row per{" "}
+                <code className="font-mono text-[0.85em] text-[var(--thoth-blue)]">
+                  (golden, metric)
+                </code>{" "}
+                to the{" "}
+                <code className="font-mono text-[0.85em] text-[var(--thoth-blue)]">
+                  EvalRun
+                </code>{" "}
+                table. This page reads the latest row for each pair — no
+                cherry-picking, no averaging across history.
+              </li>
+            </ol>
+          </article>
+
+          <article className="bg-[oklch(1_0_0)] border border-[var(--thoth-rule)] rounded-lg p-6">
+            <p className="eyebrow mb-3">Philosophy</p>
+            <dl className="space-y-3 text-sm text-[var(--thoth-ink)] leading-relaxed">
+              <div>
+                <dt className="font-semibold text-[var(--thoth-blue-ink)]">
+                  Public, not hidden.
+                </dt>
+                <dd>
+                  If a commit makes the agent worse, the regression shows up
+                  here — not buried in CI logs only the author reads.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-[var(--thoth-blue-ink)]">
+                  Vacuous-true scoring.
+                </dt>
+                <dd>
+                  When a golden doesn&apos;t assert on a particular metric
+                  (no expected papers, no expected claims), that metric
+                  returns 1.0 for that golden so it doesn&apos;t drag the
+                  average down.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-[var(--thoth-blue-ink)]">
+                  Hard regression guard.
+                </dt>
+                <dd>
+                  Any metric dropping more than 10% versus the prior
+                  baseline fails the workflow — the dashboard moves only
+                  when a real change is intended.
+                </dd>
+              </div>
+            </dl>
+          </article>
+        </div>
+
+        {/* Per-metric definitions */}
+        <div className="bg-[oklch(1_0_0)] border border-[var(--thoth-rule)] rounded-lg p-6">
+          <p className="eyebrow mb-4">The four metrics, in detail</p>
+          <dl className="space-y-5 text-sm text-[var(--thoth-ink)] leading-relaxed">
+            <div>
+              <dt className="font-display text-base font-medium text-[var(--thoth-blue-ink)]">
+                Citation recall ·{" "}
+                <span className="font-mono text-xs text-[var(--thoth-stone)]">
+                  expected ∩ cited / expected
+                </span>
+              </dt>
+              <dd className="mt-1">
+                Of the papers the golden says should be cited, how many did
+                the agent actually surface? Hardest metric to game — it
+                requires retrieval and screening to land on the right
+                papers from the corpus, not just write plausible prose.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-display text-base font-medium text-[var(--thoth-blue-ink)]">
+                Citation precision ·{" "}
+                <span className="font-mono text-xs text-[var(--thoth-stone)]">
+                  expected ∩ cited / cited
+                </span>
+              </dt>
+              <dd className="mt-1">
+                Of the papers the agent did cite, how many were on the
+                expected list? Easy to score 100% by being maximally
+                conservative; the trick is doing it{" "}
+                <em>alongside</em> high recall.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-display text-base font-medium text-[var(--thoth-blue-ink)]">
+                Claim faithfulness ·{" "}
+                <span className="font-mono text-xs text-[var(--thoth-stone)]">
+                  SUPPORTED / total claim checks
+                </span>
+              </dt>
+              <dd className="mt-1">
+                After drafting, the cite-check stage asks an LLM whether
+                each extracted claim is actually supported by the paper
+                excerpt it cites. This is the most direct measure of
+                hallucination — and the metric we watch most closely.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-display text-base font-medium text-[var(--thoth-blue-ink)]">
+                Expected-claim coverage ·{" "}
+                <span className="font-mono text-xs text-[var(--thoth-stone)]">
+                  keyword hits / expected claims
+                </span>
+              </dt>
+              <dd className="mt-1">
+                Literal substring match: does the draft contain each
+                expected-claim phrase from the golden? Deliberately
+                brittle — paraphrasing scores zero — but useful for
+                catching outright omissions of canonical findings.
+                Treat low scores here as a prompt for inspection, not as
+                proof of failure.
+              </dd>
+            </div>
+          </dl>
         </div>
       </section>
 
