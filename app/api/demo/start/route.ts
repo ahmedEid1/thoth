@@ -191,10 +191,27 @@ export async function POST(req: Request) {
     // works across dev (localhost) and every deploy environment without
     // hardcoding a hostname.
     const reqHost = req.headers.get("host") ?? "";
-    const reqProto =
-      req.headers.get("x-forwarded-proto") ??
-      (reqHost.startsWith("localhost") || reqHost.startsWith("127.") ? "http" : "https");
-    const dashboardUrl = `${reqProto}://${reqHost}/dashboard`;
+    // Sanitize x-forwarded-proto BEFORE interpolating into a URL:
+    //   - Proxies may set comma-separated chains ("https,http"); take the
+    //     first token only — string-concatenating the whole chain produces
+    //     an invalid URL like "https,http://host/dashboard".
+    //   - The header is attacker-controllable on misconfigured edges, so
+    //     values like "javascript:" or "https://attacker.example" must be
+    //     rejected outright; otherwise the redirect_url would point off-site.
+    // Anything that isn't exactly "http" or "https" falls back to the
+    // localhost/IP heuristic (http for loopback hosts, https otherwise).
+    const rawProto = req.headers.get("x-forwarded-proto");
+    const firstProto = rawProto?.split(",")[0]?.trim().toLowerCase();
+    const isValidProto = firstProto === "http" || firstProto === "https";
+    const reqProto = isValidProto
+      ? firstProto
+      : reqHost.startsWith("localhost") || reqHost.startsWith("127.")
+        ? "http"
+        : "https";
+    // Construct via URL() so the output is guaranteed well-formed and
+    // any host-injection garbage (CR/LF, embedded credentials, etc.)
+    // throws here instead of silently producing a bad redirect_url.
+    const dashboardUrl = new URL("/dashboard", `${reqProto}://${reqHost}`).toString();
     const signInUrl = `${ticket.url}&redirect_url=${encodeURIComponent(dashboardUrl)}`;
 
     return NextResponse.json(

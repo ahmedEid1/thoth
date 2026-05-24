@@ -27,9 +27,24 @@ import { deliverCheckpoint } from "@/lib/agent/checkpoint-delivery";
  * on every tick — that is intentional. Once Trigger recovers, the next
  * tick delivers and the row drops out of the candidate set.
  *
+ * Starvation safeguard: ordering is `lastDeliveryAttemptAt ASC NULLS
+ * FIRST, decidedAt ASC`. The helper bumps attemptCount +
+ * lastDeliveryAttemptAt on every attempt (even failed ones), so a
+ * batch of permanently-failing rows gets pushed to the back of the
+ * queue and newer never-tried rows (NULL lastDeliveryAttemptAt) are
+ * processed first. Combined with the terminalError quarantine below,
+ * a one-time backlog of broken rows cannot starve fresh traffic.
+ *
+ * Terminal quarantine: after MAX_ATTEMPTS failed deliveries the row is
+ * stamped with terminalError and excluded from future selects. An
+ * operator can clear terminalError manually (or a manual UI retry will
+ * clear it on success) to put the row back in rotation.
+ *
  * Batch is capped at 50 rows per tick so a one-time backlog after a
  * long outage doesn't fan out into a thundering herd.
  */
+const MAX_ATTEMPTS = 10;
+
 export const checkpointDeliveryOutboxTask = schedules.task({
   id: "checkpoint-delivery-outbox",
   // Every minute, UTC. Cron format: min hour dom month dow.
@@ -40,6 +55,7 @@ export const checkpointDeliveryOutboxTask = schedules.task({
       where: {
         status: { not: "PENDING" },
         waitToken: { not: null },
+        terminalError: null,
       },
       select: {
         id: true,
@@ -47,10 +63,17 @@ export const checkpointDeliveryOutboxTask = schedules.task({
         status: true,
         createdAt: true,
         decidedAt: true,
+        attemptCount: true,
       },
       // Cap the batch so a one-time backlog doesn't all run at once.
       take: 50,
-      orderBy: { decidedAt: "asc" },
+      // Least-recently-attempted first, nulls (never-tried) first. This
+      // prevents a backlog of permanently-failing rows that fill the
+      // top-50 cap from starving newer recoverable rows.
+      orderBy: [
+        { lastDeliveryAttemptAt: { sort: "asc", nulls: "first" } },
+        { decidedAt: "asc" },
+      ],
     });
 
     if (stranded.length === 0) {
@@ -60,12 +83,14 @@ export const checkpointDeliveryOutboxTask = schedules.task({
         delivered: 0,
         alreadyDelivered: 0,
         errors: 0,
+        terminal: 0,
       };
     }
 
     let delivered = 0;
     let alreadyDelivered = 0;
     let errors = 0;
+    let terminal = 0;
 
     for (const cp of stranded) {
       try {
@@ -74,11 +99,38 @@ export const checkpointDeliveryOutboxTask = schedules.task({
         else if (r.outcome === "already_delivered") alreadyDelivered += 1;
       } catch (err) {
         errors += 1;
+        const reason = err instanceof Error ? err.message : String(err);
         logger.error("checkpoint-outbox: delivery failed", {
           checkpointId: cp.id,
           runId: cp.runId,
-          reason: err instanceof Error ? err.message : String(err),
+          attemptCount: cp.attemptCount + 1,
+          reason,
         });
+        // The helper bumped attemptCount BEFORE throwing, so the
+        // in-DB value is now `cp.attemptCount + 1`. Once that crosses
+        // MAX_ATTEMPTS, quarantine the row so it stops dominating
+        // future selects (and operator alerts).
+        if (cp.attemptCount + 1 >= MAX_ATTEMPTS) {
+          terminal += 1;
+          try {
+            await db.humanCheckpoint.update({
+              where: { id: cp.id },
+              data: { terminalError: reason.slice(0, 500) },
+            });
+            logger.warn("checkpoint-outbox: marked terminal", {
+              checkpointId: cp.id,
+              runId: cp.runId,
+              attemptCount: cp.attemptCount + 1,
+              reason: reason.slice(0, 500),
+            });
+          } catch (markErr) {
+            logger.error("checkpoint-outbox: failed to mark terminal", {
+              checkpointId: cp.id,
+              runId: cp.runId,
+              reason: markErr instanceof Error ? markErr.message : String(markErr),
+            });
+          }
+        }
       }
     }
 
@@ -87,6 +139,7 @@ export const checkpointDeliveryOutboxTask = schedules.task({
       delivered,
       alreadyDelivered,
       errors,
+      terminal,
     });
 
     return {
@@ -94,6 +147,7 @@ export const checkpointDeliveryOutboxTask = schedules.task({
       delivered,
       alreadyDelivered,
       errors,
+      terminal,
     };
   },
 });
