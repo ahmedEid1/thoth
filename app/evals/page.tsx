@@ -49,7 +49,7 @@ export default async function EvalsPage() {
   return (
     <main className="max-w-5xl mx-auto p-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-semibold">Atlas evals</h1>
+        <h1 className="text-3xl font-semibold">Thoth evals</h1>
         <p className="text-gray-600 mt-2">
           Public eval dashboard. {goldenIds.length} golden SLR questions, 4 metrics, runs nightly + on every push to master.
         </p>
@@ -80,7 +80,7 @@ export default async function EvalsPage() {
           </thead>
           <tbody>
             {perQuestion.length === 0 && (
-              <tr><td colSpan={5} className="py-6 px-3 text-center text-gray-500">No eval runs yet. See <a href="https://github.com/ahmedEid1/atlas/tree/master/evals" className="text-blue-600 hover:underline">evals/README.md</a> for current status (known upstream LLM-SDK issue blocking first run).</td></tr>
+              <tr><td colSpan={5} className="py-6 px-3 text-center text-gray-500">No eval runs yet. See <a href="https://github.com/ahmedEid1/thoth/tree/master/evals" className="text-blue-600 hover:underline">evals/README.md</a> for current status (known upstream LLM-SDK issue blocking first run).</td></tr>
             )}
             {perQuestion.map((p) => (
               <QuestionRow key={p.goldenId} goldenId={p.goldenId} scores={p.scores} />
@@ -90,7 +90,7 @@ export default async function EvalsPage() {
       </section>
 
       <footer className="mt-8 text-xs text-gray-500">
-        Source: <a href="https://github.com/ahmedEid1/atlas/tree/master/evals" className="text-blue-600 hover:underline">evals/</a> on GitHub.
+        Source: <a href="https://github.com/ahmedEid1/thoth/tree/master/evals" className="text-blue-600 hover:underline">evals/</a> on GitHub.
         Methodology in <code className="font-mono">docs/superpowers/specs/2026-05-23-m4-critic-cite-check-evals-design.md</code>.
       </footer>
     </main>

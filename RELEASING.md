@@ -1,6 +1,6 @@
-# Releasing Atlas
+# Releasing Thoth
 
-This checklist applies to every Atlas release tag. Some items are
+This checklist applies to every Thoth release tag. Some items are
 milestone-specific — read the section for the milestone you're shipping.
 
 ## Always do before tagging
@@ -31,7 +31,7 @@ touches `app/api/mcp/`, `lib/mcp/`, or `app/.well-known/`. ~5 minutes.
 - [ ] **MCP Inspector full OAuth flow**:
   1. `npx @modelcontextprotocol/inspector`
   2. Set transport to "Streamable HTTP"
-  3. URL: `https://atlas-sooty-delta.vercel.app/api/mcp/mcp`
+  3. URL: `https://thoth.vercel.app/api/mcp/mcp`
   4. Click "Connect" — browser pops Clerk sign-in
   5. Sign in / sign up
   6. Expect: 3 tools appear in the left pane
@@ -43,10 +43,10 @@ touches `app/api/mcp/`, `lib/mcp/`, or `app/.well-known/`. ~5 minutes.
 
 - [ ] **Claude Desktop install** (proves the recruiter-demo path works):
   1. Claude Desktop → Settings → Developer → Edit Config → add an MCP server
-     pointing at `https://atlas-sooty-delta.vercel.app/api/mcp/mcp`
+     pointing at `https://thoth.vercel.app/api/mcp/mcp`
   2. Restart Claude Desktop
   3. Sign in via the browser pop
-  4. In a new conversation, ask: "List my Atlas reviews"
+  4. In a new conversation, ask: "List my Thoth reviews"
   5. Expect: Claude invokes `list_reviews` and renders the result
 
 - [ ] **Verify the audit log** (Neon):
@@ -82,8 +82,8 @@ curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/downlo
 /tmp/mcp-publisher.exe publish                  # POSTs to registry.modelcontextprotocol.io
 
 # 3. Verify the new version is live:
-curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=atlas-research" \
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth" \
   | jq '.servers[0].server.version'
 ```
 
-Namespace `io.github.ahmedEid1/atlas-research` requires logging in as **`ahmedEid1`** (capital E — namespace is case-sensitive). Description is hard-capped at 100 chars.
+Namespace `io.github.ahmedEid1/thoth` requires logging in as **`ahmedEid1`** (capital E — namespace is case-sensitive). Description is hard-capped at 100 chars.

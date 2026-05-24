@@ -5,7 +5,7 @@ import { config as dotenvConfig } from "dotenv";
 
 // SyncEnvVars callback — runs at deploy time, pushes resolved env vars to
 // Trigger.dev's project env so worker tasks have what they need at runtime.
-// Reads from local .env (which IS the source of truth for Atlas dev/local).
+// Reads from local .env (which IS the source of truth for Thoth dev/local).
 // Filters out CLI-only vars (TRIGGER_*) that shouldn't be in the worker env.
 //
 // IMPORTANT: this means local .env values are pushed to the prod Trigger.dev

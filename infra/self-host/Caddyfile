@@ -1,15 +1,15 @@
-# Atlas self-host reverse proxy.
+# Thoth self-host reverse proxy.
 #
 # Auto-TLS via Let's Encrypt. Caddy stores certs in /data (the `caddydata` volume),
 # so renewals survive container restarts as long as the volume is preserved.
 #
 # Requires:
-#   - DOMAIN env var set in .env.prod (e.g., DOMAIN=atlas.example.com)
+#   - DOMAIN env var set in .env.prod (e.g., DOMAIN=thoth.example.com)
 #   - DNS A record(s) pointing at the host's public IP BEFORE first boot
 #     (the ACME challenge needs to reach :80)
 #
 # Sub-domain layout:
-#   {$DOMAIN}              → Atlas Next.js app (atlas:3000)
+#   {$DOMAIN}              → Thoth Next.js app (thoth:3000)
 #   langfuse.{$DOMAIN}     → Langfuse dashboard (langfuse-web:3000)  [optional]
 
 {
@@ -23,7 +23,7 @@
 
 	# Trust Caddy's own X-Forwarded-* so Next.js sees the real client IP/proto.
 	# Caddy already sets these correctly when reverse_proxy-ing.
-	reverse_proxy atlas:3000 {
+	reverse_proxy thoth:3000 {
 		header_up Host {host}
 		header_up X-Real-IP {remote_host}
 	}

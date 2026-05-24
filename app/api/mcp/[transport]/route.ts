@@ -27,7 +27,7 @@ const baseHandler = createMcpHandler(
       );
     }
   },
-  { serverInfo: { name: "atlas-research", version: "0.7.0" }, capabilities: { tools: {} } },
+  { serverInfo: { name: "thoth", version: "0.7.0" }, capabilities: { tools: {} } },
   { basePath: "/api/mcp", maxDuration: 60, verboseLogs: process.env.NODE_ENV !== "production" },
 );
 

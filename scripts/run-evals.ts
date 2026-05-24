@@ -59,7 +59,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    // Translate Atlas's CorpusItem ids back to the YAML's paper ids so metrics line up
+    // Translate Thoth's CorpusItem ids back to the YAML's paper ids so metrics line up
     const corpusToPaperId = new Map(Object.entries(seed.paperIdMap).map(([y, c]) => [c, y]));
     const includedPaperIds = result.includedPapers
       .map((p) => corpusToPaperId.get(p.corpusItemId))
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
       })),
     });
 
-    // Finalize the Atlas Run (for visibility in /projects/* if anyone looks)
+    // Finalize the Thoth Run (for visibility in /projects/* if anyone looks)
     if (result.draft) await finishRun({ runId: run.id, draft: result.draft });
     if (result.includedPapers.length > 0) await persistIncludedPapers({ runId: run.id, included: result.includedPapers });
     if (result.claims.length > 0) await persistClaims({ runId: run.id, claims: result.claims });

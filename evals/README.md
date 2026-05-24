@@ -1,12 +1,12 @@
-# Atlas eval harness
+# Thoth eval harness
 
-10 golden SLR questions in YAML; a runner that drives Atlas's M3+M4a
+10 golden SLR questions in YAML; a runner that drives Thoth's M3+M4a
 LangGraph headlessly per question; 4 metrics; CI gate at >10% regression;
-public dashboard at https://atlas-sooty-delta.vercel.app/evals.
+public dashboard at https://thoth.vercel.app/evals.
 
 ## Live eval runs — current status
 
-Atlas defaults to `LLM_PROVIDER=groq` with `openai/gpt-oss-20b` for both tiers (the
+Thoth defaults to `LLM_PROVIDER=groq` with `openai/gpt-oss-20b` for both tiers (the
 only Groq model with strict `json_schema` support that fits the free-tier 8K TPM
 budget). The harness runs end-to-end, but **free-tier providers exhibit upstream
 quirks** that the canary surfaced:
@@ -48,11 +48,11 @@ gating factor for a populated dashboard.
 
 ### Why not Gemini default?
 
-Atlas's original default was Gemini Flash (free tier), but `vercel/ai#12187` makes
+Thoth's original default was Gemini Flash (free tier), but `vercel/ai#12187` makes
 `generateObject` unreliable on Gemini Flash. Groq promoted to default because its
 free-tier quotas are higher (30K TPM / 14400 req/day vs Gemini's 10 RPM / 250 RPD)
 and `gpt-oss-20b` works for simple structured-output tasks even if it stumbles on
-Atlas's deeply nested SLR schemas.
+Thoth's deeply nested SLR schemas.
 
 ## Run locally
 

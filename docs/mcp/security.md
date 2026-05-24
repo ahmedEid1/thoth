@@ -1,16 +1,18 @@
-# Atlas MCP — Security & Auth Model
+# Thoth MCP — Security & Auth Model
 
-Most MCP servers in the wild today ship with no authentication. Atlas
+> *Named for Thoth, ancient Egypt's ibis-headed god of writing, wisdom, and scribes — the divine patron of the very work this tool automates.*
+
+Most MCP servers in the wild today ship with no authentication. Thoth
 ships with OAuth 2.1, PKCE, Dynamic Client Registration, and an audit
 log. Here's how the pieces fit together.
 
 ## Auth: OAuth 2.1 with Clerk as the Authorization Server
 
-Per the MCP spec (2025-11-25), Atlas's MCP server is a **Resource
+Per the MCP spec (2025-11-25), Thoth's MCP server is a **Resource
 Server**. The Authorization Server is **Clerk**.
 
 ```
-Claude Desktop                     Atlas /api/mcp/mcp           Clerk
+Claude Desktop                     Thoth /api/mcp/mcp           Clerk
      │ POST /api/mcp/mcp (no token)            │                  │
      ├────────────────────────────────────────►│ 401              │
      │                                          │ WWW-Authenticate:│
@@ -34,8 +36,8 @@ Claude Desktop                     Atlas /api/mcp/mcp           Clerk
      │◄────────────────────────────────────────┤                  │
 ```
 
-What you (the user) actually do: paste the Atlas MCP URL into Claude
-Desktop's "Connect MCP server" dialog → a browser pops → sign into Atlas
+What you (the user) actually do: paste the Thoth MCP URL into Claude
+Desktop's "Connect MCP server" dialog → a browser pops → sign into Thoth
 (Clerk) → done. No tokens to copy-paste.
 
 ## Audit log
@@ -44,7 +46,7 @@ Every tool invocation writes one row to the `McpCall` table:
 
 | Column | Notes |
 |---|---|
-| `userId` | Atlas internal id (Clerk user id is stored only on `User.clerkId`) |
+| `userId` | Thoth internal id (Clerk user id is stored only on `User.clerkId`) |
 | `toolName` | `list_reviews` / `get_review_draft` / `get_citation_audit` |
 | `inputHash` | SHA-256 of canonical-JSON of the input — **raw input is never stored** |
 | `reviewId` | Copied from input when present, for query convenience |
@@ -97,4 +99,4 @@ forbidden` — this prevents existence-probing of other users' reviews.
 ## Reporting a security issue
 
 Please open a GitHub issue marked `[security]` on
-[github.com/ahmedEid1/atlas](https://github.com/ahmedEid1/atlas).
+[github.com/ahmedEid1/thoth](https://github.com/ahmedEid1/thoth).

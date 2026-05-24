@@ -207,7 +207,7 @@ model EvalRun {
   goldenId  String   // e.g., "000-cbt-back-pain"
   metric    String   // "citation_recall" | "citation_precision" | "claim_faithfulness" | "expected_claim_coverage"
   score     Float    // 0.0-1.0
-  runId     String?  // optional FK-ish link to the underlying Atlas Run (not enforced; eval runs may delete the Run row afterwards)
+  runId     String?  // optional FK-ish link to the underlying Thoth Run (not enforced; eval runs may delete the Run row afterwards)
   commitSha String   // git commit at time of run
   createdAt DateTime @default(now())
 
@@ -217,7 +217,7 @@ model EvalRun {
 
 model McpCall {
   id          String        @id @default(cuid())
-  userId      String                          // Atlas User.id (NOT Clerk id)
+  userId      String                          // Thoth User.id (NOT Clerk id)
   toolName    String
   inputHash   String                          // SHA-256(canonical-JSON(input))
   reviewId    String?                         // copied from input when present
