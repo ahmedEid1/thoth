@@ -29,15 +29,31 @@ name: evals
 #
 # Mistral's free Experiment tier is rate-limited (~1 RPS). The agent's
 # cite-check loop is already serial (PARALLEL=1) and the cost-cap at
-# 250k tokens per run keeps any single run bounded, so a full sweep of
-# the 17 goldens stays well inside the free-tier budget. If usage grows
-# past the free tier in the future, either bump LLM_FALLBACK_PROVIDER
-# or move the workflow off the schedule and back to manual trigger.
+# 250k tokens per run keeps any single run bounded — but a full sweep
+# of all 17 goldens at ~1 RPS overshoots the 60-min job limit (run
+# #26370438200 was cancelled at the cap). To stay in the free budget:
+#   - The cron uses a fixed 6-golden "smoke" set (000,001,002,004,005,007)
+#     which fits comfortably under 30 min.
+#   - The full 17-golden sweep is opt-in via `workflow_dispatch` with
+#     `goldens: all` — pick that when you've added a new golden or want
+#     a fresh complete baseline and you're OK burning more Mistral quota.
+#   - Per-golden walltime cap (EVAL_GOLDEN_TIMEOUT_MS, default 8 min in
+#     scripts/run-evals.ts) means one stuck golden no longer kills the
+#     whole run.
 
 on:
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
+    inputs:
+      goldens:
+        description: "Which goldens to run"
+        required: false
+        default: "smoke"
+        type: choice
+        options:
+          - smoke
+          - all
 
 permissions:
   contents: read
@@ -50,10 +66,14 @@ jobs:
   run-evals:
     name: Run evals + regression check
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     env:
       LLM_PROVIDER: mistral
+      # The cron always runs the smoke set. workflow_dispatch can override
+      # via the `goldens` input ("smoke" | "all"). "all" passes empty, so
+      # run-evals.ts falls through to running every YAML in evals/golden/.
+      EVAL_GOLDENS: ${{ github.event_name == 'workflow_dispatch' && inputs.goldens == 'all' && '' || '000,001,002,004,005,007' }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}

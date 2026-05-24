@@ -27,18 +27,55 @@ function gitSha(): string {
   }
 }
 
+/**
+ * EVAL_GOLDENS: optional CSV of golden ids (e.g. "000,001,005"). Matched against
+ * each golden's leading id prefix (everything before the first "-"), so users
+ * don't have to type the full slug. Unset/empty = run every golden in evals/golden/.
+ */
+function selectGoldens<T extends { id: string }>(all: T[]): T[] {
+  const raw = process.env.EVAL_GOLDENS?.trim();
+  if (!raw) return all;
+  const wanted = new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+  return all.filter((g) => wanted.has(g.id.split("-")[0] ?? g.id));
+}
+
+/**
+ * EVAL_GOLDEN_TIMEOUT_MS: per-golden walltime cap. Default 8 minutes. A golden
+ * that exceeds this is logged + skipped (no EvalRun rows written for it); the
+ * sweep continues with the next golden. Bound is necessary because the cron's
+ * Mistral provider can stall on free-tier rate-limits and one stuck golden
+ * shouldn't burn the whole CI budget.
+ */
+const DEFAULT_GOLDEN_TIMEOUT_MS = 8 * 60 * 1000;
+function goldenTimeoutMs(): number {
+  const raw = process.env.EVAL_GOLDEN_TIMEOUT_MS;
+  if (!raw) return DEFAULT_GOLDEN_TIMEOUT_MS;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_GOLDEN_TIMEOUT_MS;
+}
+
 async function main(): Promise<void> {
   console.log("→ Loading golden questions...");
-  const golden = await loadGolden();
-  console.log(`  ${golden.length} loaded`);
+  const allGolden = await loadGolden();
+  const golden = selectGoldens(allGolden);
+  console.log(
+    `  ${golden.length} of ${allGolden.length} selected${
+      process.env.EVAL_GOLDENS ? ` (EVAL_GOLDENS=${process.env.EVAL_GOLDENS})` : ""
+    }`,
+  );
 
   if (golden.length === 0) {
-    console.error("✗ No golden questions found in evals/golden/. Add some YAMLs.");
+    console.error(
+      allGolden.length === 0
+        ? "✗ No golden questions found in evals/golden/. Add some YAMLs."
+        : `✗ EVAL_GOLDENS=${process.env.EVAL_GOLDENS} matched zero of ${allGolden.length} goldens.`,
+    );
     process.exit(1);
   }
 
   const commitSha = gitSha();
   const allRows: MetricRow[] = [];
+  const perGoldenTimeout = goldenTimeoutMs();
 
   for (const g of golden) {
     console.log(`\n→ ${g.id}: "${g.question.slice(0, 60)}..."`);
@@ -48,12 +85,24 @@ async function main(): Promise<void> {
 
     let result;
     try {
-      result = await runHeadless({
+      const TIMEOUT = Symbol("golden-timeout");
+      const runPromise = runHeadless({
         runId: run.id,
         projectId: seed.projectId,
         question: g.question,
         corpusItemIds: seed.corpusItemIds,
       });
+      const timeoutPromise = new Promise<typeof TIMEOUT>((resolve) =>
+        setTimeout(() => resolve(TIMEOUT), perGoldenTimeout),
+      );
+      const raced = await Promise.race([runPromise, timeoutPromise]);
+      if (raced === TIMEOUT) {
+        console.error(
+          `  ✗ exceeded per-golden walltime cap (${Math.round(perGoldenTimeout / 1000)}s); skipping`,
+        );
+        continue;
+      }
+      result = raced;
     } catch (err) {
       console.error(`  ✗ run failed: ${(err as Error).message}`);
       continue;
