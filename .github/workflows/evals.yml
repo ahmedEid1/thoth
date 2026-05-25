@@ -121,10 +121,12 @@ jobs:
 
       - name: Check for regressions
         run: pnpm eval:check
-        # Reads eval-results.json, compares each metric to the most
-        # recent prior baseline for that (goldenId, metric), and exits
-        # non-zero if any metric dropped > 10% (REGRESSION_THRESHOLD in
-        # scripts/check-eval-regression.ts).
+        # Reads eval-results.json, compares each metric to the highest
+        # historical score for that (goldenId, metric), and logs drops
+        # beyond per-metric thresholds. ADVISORY ONLY — exits 0 even on
+        # over-threshold drops, because Mistral free-tier variance on
+        # 4-5-item denominators is wider than any usable threshold (see
+        # comment in scripts/check-eval-regression.ts).
 
       - name: Upload eval-results.json
         if: always()

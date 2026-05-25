@@ -300,19 +300,20 @@ export default async function EvalsPage() {
               </div>
               <div>
                 <dt className="font-semibold text-[var(--thoth-blue-ink)]">
-                  Hard regression guard.
+                  Advisory regression watch.
                 </dt>
                 <dd>
-                  Each metric is compared against its{" "}
-                  <em>highest historical score</em> for that golden
-                  (not the most recent prior run) — so day-to-day LLM
-                  variance doesn&apos;t trip the guard, but a sustained
-                  drift from project peak does. Tolerances are
-                  per-metric: 10% for the deterministic
-                  citation/coverage metrics, 20% for
-                  <code> claim_faithfulness</code> — scored by an LLM
-                  judge over ~10–20 claims per golden, where a single
-                  verdict flip is 7–10 points.
+                  Each metric is logged with its delta from the
+                  highest historical score for that golden, but the
+                  check is <em>advisory</em>, not a CI gate. Empirical
+                  result: Mistral&apos;s free-tier non-determinism on
+                  4–5-item denominators produces ±25–40% per-metric
+                  variance run-to-run even when agent code is
+                  byte-identical, so no single threshold cleanly
+                  separates real regressions from sampling noise. The
+                  dashboard is the authoritative public signal; the
+                  workflow status reflects only catastrophic failure
+                  (empty sweep, infrastructure outage).
                 </dd>
               </div>
             </dl>
