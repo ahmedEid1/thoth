@@ -338,4 +338,143 @@ test.describe("live full agent-pipeline", () => {
     expect(del.status()).toBe(204);
     createdProjectIds.delete(projectId);
   });
+
+  // The COMPLETED happy path. Drives a V2 outbound run all the way to
+  // a rendered draft + cite_check audit. This is the app's actual value
+  // proposition — "an agent that drafts a review and verifies every
+  // cited claim." Slowest test in the suite (~5-7 min on Mistral free
+  // tier with the sequential cite_check loop) but the only one that
+  // confirms the v1 tail of the pipeline (assessor → drafter → critic
+  // → cite_check) actually runs end-to-end on the deployed
+  // infrastructure.
+  test("COMPLETED happy path: V2 outbound all the way to draft + cite_check audit", async ({ page, context }) => {
+    test.setTimeout(10 * 60 * 1000); // 10 min — cite_check is sequential.
+
+    await page.setViewportSize({ width: 1280, height: 1400 });
+    await page.goto("/");
+    await clerk.signIn({ page, emailAddress: EMAIL }).catch((err: unknown) => {
+      if (!/already signed in/i.test(String(err))) throw err;
+    });
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: /new project/i }).click();
+    const title = `E2E full-pipeline COMPLETED — ${new Date().toISOString()}`;
+    await page.getByLabel(/title/i).fill(title);
+    await page.getByLabel(/research question/i).fill("What evidence supports chain-of-thought prompting improving LLM reasoning?");
+    await page.getByRole("radio", { name: /outbound search/i }).check();
+    await page.getByRole("checkbox", { name: /openalex/i }).uncheck();
+    await page.getByLabel(/max hits per run/i).fill("2");
+    await page.getByRole("checkbox", { name: /skip discovery approval/i }).check();
+
+    await page.getByRole("button", { name: /^create$/i }).click();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 30_000 });
+    const projectId = page.url().match(/\/projects\/([^/]+)/)![1]!;
+    createdProjectIds.add(projectId);
+
+    await page.getByRole("button", { name: /start review/i }).click();
+    await expect(page.getByRole("heading", { name: /review proposed plan/i }))
+      .toBeVisible({ timeout: 4 * 60 * 1000 });
+    await page.getByRole("button", { name: /approve plan/i }).click();
+
+    await expect(page.getByRole("heading", { name: /approve included papers/i }))
+      .toBeVisible({ timeout: 4 * 60 * 1000 });
+
+    const approveBtn = page.getByRole("button", { name: /^approve \d+$/i });
+    if (!(await approveBtn.isEnabled().catch(() => false))) {
+      // Screener admitted 0 papers — can't exercise the COMPLETED tail
+      // from here. Reject so the run terminates cleanly + skip the
+      // remaining assertions.
+      await page.getByRole("button", { name: /reject all/i }).click();
+      const del = await context.request.delete(`/api/projects/${projectId}`);
+      expect(del.status()).toBe(204);
+      createdProjectIds.delete(projectId);
+      test.skip(true, "screener admitted 0 papers — can't verify COMPLETED path");
+      return;
+    }
+    await approveBtn.click();
+
+    // Grab the runId out of the URL so we can poll the API for status.
+    const runId = page.url().match(/\/runs\/([^/?#]+)/)![1]!;
+
+    // Poll the API for COMPLETED. assessor + drafter + critic +
+    // cite_check run sequentially. Each cite_check claim is one Mistral
+    // call serialised at PARALLEL=1 to respect free-tier RPS. The run
+    // may bounce through ASSESSING / DRAFTING / CITE_CHECKING states.
+    await expect.poll(async () => {
+      const res = await context.request.get(`/api/runs/${runId}`);
+      if (!res.ok()) return "pending";
+      const body = (await res.json()) as { status: string };
+      return body.status;
+    }, { timeout: 8 * 60 * 1000, intervals: [5_000, 8_000, 12_000] }).toBe("COMPLETED");
+
+    // Reload to pick up the COMPLETED state. The draft + critique +
+    // citation audit components only mount when the page sees
+    // status=COMPLETED.
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+
+    // Draft is rendered via react-markdown — at minimum the agent's
+    // markdown contains a heading, which markdown lifts to <h1>/<h2>.
+    await expect(page.locator("article h1, article h2, main h1, main h2").first())
+      .toBeVisible({ timeout: 30_000 });
+    // cite_check audit shows somewhere — match its key terms.
+    await expect(
+      page.getByText(/supported|unsupported|faithfulness|cite_check/i).first(),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Clean up.
+    const del = await context.request.delete(`/api/projects/${projectId}`);
+    expect(del.status()).toBe(204);
+    createdProjectIds.delete(projectId);
+  });
+
+  // Reject at papers_gate — papers approval card clicks "Reject all"
+  // → run ends in REJECTED with "User aborted at papers gate" as the
+  // failureReason (the card hardcodes that string when rejecting).
+  test("V2 outbound: reject papers_gate → REJECTED with 'User aborted at papers gate' reason", async ({ page, context }) => {
+    test.setTimeout(8 * 60 * 1000);
+    await page.setViewportSize({ width: 1280, height: 1400 });
+    await page.goto("/");
+    await clerk.signIn({ page, emailAddress: EMAIL }).catch((err: unknown) => {
+      if (!/already signed in/i.test(String(err))) throw err;
+    });
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: /new project/i }).click();
+    const title = `E2E full-pipeline reject-papers — ${new Date().toISOString()}`;
+    await page.getByLabel(/title/i).fill(title);
+    await page
+      .getByLabel(/research question/i)
+      .fill("How does sparse mixture-of-experts routing improve transformer efficiency?");
+    await page.getByRole("radio", { name: /outbound search/i }).check();
+    await page.getByRole("checkbox", { name: /openalex/i }).uncheck();
+    await page.getByLabel(/max hits per run/i).fill("2");
+    await page.getByRole("checkbox", { name: /skip discovery approval/i }).check();
+    await page.getByRole("button", { name: /^create$/i }).click();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 30_000 });
+    const projectId = page.url().match(/\/projects\/([^/]+)/)![1]!;
+    createdProjectIds.add(projectId);
+
+    await page.getByRole("button", { name: /start review/i }).click();
+    await expect(page.getByRole("heading", { name: /review proposed plan/i }))
+      .toBeVisible({ timeout: 4 * 60 * 1000 });
+    await page.getByRole("button", { name: /approve plan/i }).click();
+    await expect(page.getByRole("heading", { name: /approve included papers/i }))
+      .toBeVisible({ timeout: 4 * 60 * 1000 });
+
+    // Reject all papers — exercises the M12 papersApproved.rejectionReason
+    // path which the M30 reject-plan test couldn't reach.
+    await page.getByRole("button", { name: /reject all/i }).click();
+
+    await expect(page.getByText(/^rejected$/i).first()).toBeVisible({ timeout: 60_000 });
+    // The PapersApprovalCard hardcodes the rejection reason
+    // "User aborted at papers gate" (it doesn't show a reason form).
+    await expect(page.getByText(/user aborted at papers gate/i)).toBeVisible({ timeout: 60_000 });
+
+    const del = await context.request.delete(`/api/projects/${projectId}`);
+    expect(del.status()).toBe(204);
+    createdProjectIds.delete(projectId);
+  });
 });
