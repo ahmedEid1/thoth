@@ -1,0 +1,54 @@
+name: verify
+
+# Runs `pnpm verify` (typecheck + lint + full vitest suite) on every PR
+# and on every push to master. Cheap (~1-2 min) and the only PR-time
+# regression guard the repo has — the weekly `evals.yml` is the LLM-quality
+# signal, not a code-correctness signal.
+#
+# No secrets needed: lib/env.ts is lazy (parses on first property access),
+# tests that touch env mock the whole module via `vi.mock("@/lib/env", ...)`,
+# and the object-store integration suite skips itself when MinIO isn't
+# reachable. tsc + lint don't touch process.env at all.
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Cancel superseded runs on PR branch pushes; keep one run per master commit.
+  group: verify-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: typecheck + lint + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+        # Activates the pnpm version pinned in package.json's `packageManager`
+        # field. See evals.yml for why we don't bump to pnpm 10 here.
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm exec prisma generate
+        # `postinstall` already runs this, but be explicit so a CI cache hit
+        # that skips postinstall doesn't break the tsc step.
+
+      - name: Verify (typecheck + lint + test)
+        run: pnpm verify
