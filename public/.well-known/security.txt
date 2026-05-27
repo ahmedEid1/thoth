@@ -1,0 +1,5 @@
+Contact: https://github.com/ahmedEid1/thoth/issues
+Expires: 2027-05-27T00:00:00.000Z
+Preferred-Languages: en
+Policy: https://github.com/ahmedEid1/thoth/blob/master/docs/security-and-privacy.md#8-reporting-a-security-issue
+Canonical: https://thoth-slr.vercel.app/.well-known/security.txt
