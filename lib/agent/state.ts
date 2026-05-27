@@ -11,6 +11,35 @@ export type CandidateCorpusItem = {
   } | null;
 };
 
+/**
+ * V2 — a paper discovered by the outbound search pipeline. Carried in state
+ * between the discoverer node (which writes it from search-provider hits) and
+ * the screener node (which produces a ScreeningDecision for each one).
+ *
+ * `corpusItemId` is `null` until the fetcher successfully downloads + OCRs
+ * the PDF; the screener can score abstract-only when this stays null.
+ */
+export type DiscoveredPaperRef = {
+  id: string;                              // DB row id (DiscoveredPaper.id)
+  provider: "openalex" | "arxiv" | "exa";
+  externalId: string;
+  title: string;
+  abstract: string | null;
+  oaUrl: string | null;
+  accessStatus: "open" | "paywalled" | "unknown";
+  corpusItemId: string | null;
+};
+
+/** V2 — screener's per-paper verdict. */
+export type ScreeningRef = {
+  discoveredPaperId: string;
+  include: boolean;
+  relevanceScore: number;
+  reason: string;
+};
+
+export type SearchScope = "uploaded_only" | "outbound" | "hybrid";
+
 export type Plan = {
   picoc: {
     population: string;
@@ -93,6 +122,37 @@ export const AgentStateAnnotation = Annotation.Root({
   critiqueIterations: Annotation<number>({
     reducer: (_old, neu) => neu,
     default: () => 0,
+  }),
+  // V2 — outbound-search state. Carried only when the project has
+  // searchScope !== "uploaded_only". V1 paths leave these defaulted.
+  searchScope: Annotation<SearchScope>({
+    reducer: (_old, neu) => neu,
+    default: () => "uploaded_only",
+  }),
+  searchProviders: Annotation<Array<"openalex" | "arxiv" | "exa">>({
+    reducer: (_old, neu) => neu,
+    default: () => [],
+  }),
+  discoveryQueries: Annotation<string[]>({
+    reducer: (_old, neu) => neu,
+    default: () => [],
+  }),
+  discoveredPapers: Annotation<DiscoveredPaperRef[]>({
+    reducer: (_old, neu) => neu,
+    default: () => [],
+  }),
+  discoveryApproved: Annotation<{
+    approved: boolean;
+    keptExternalIds?: string[];
+    editedQueries?: string[];
+    rejectionReason?: string;
+  } | null>({
+    reducer: (_old, neu) => neu,
+    default: () => null,
+  }),
+  screeningDecisions: Annotation<ScreeningRef[]>({
+    reducer: (_old, neu) => neu,
+    default: () => [],
   }),
 });
 

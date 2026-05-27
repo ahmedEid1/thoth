@@ -96,6 +96,12 @@ describe("agent graph", () => {
         actionableFeedback: "looks good",
       },
       critiqueIterations: 1,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
     });
     mocks.citeCheck.mockResolvedValue({ claimChecks: [] });
 
@@ -160,6 +166,12 @@ describe("routeAfterCritic", () => {
     draft: null,
     critique: null,
     critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
   };
 
   it("routes to cite_check on approve regardless of iteration count", async () => {
@@ -174,6 +186,12 @@ describe("routeAfterCritic", () => {
           actionableFeedback: "looks good",
         },
         critiqueIterations: 1,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
       }),
     ).toBe("cite_check");
   });
@@ -190,6 +208,12 @@ describe("routeAfterCritic", () => {
           actionableFeedback: "x".repeat(50),
         },
         critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
       }),
     ).toBe("drafter");
   });
@@ -206,6 +230,12 @@ describe("routeAfterCritic", () => {
           actionableFeedback: "x".repeat(50),
         },
         critiqueIterations: 2,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
       }),
     ).toBe("cite_check");
   });

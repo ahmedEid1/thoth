@@ -52,6 +52,12 @@ describe("plannerNode", () => {
       draft: null,
       critique: null,
       critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
     });
 
     expect(mocks.runLLM).toHaveBeenCalledWith(
@@ -87,6 +93,12 @@ describe("plannerNode", () => {
         draft: null,
         critique: null,
         critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
       }),
     ).rejects.toThrow(/anthropic 500/);
     expect(mocks.finishStep).toHaveBeenCalledWith(

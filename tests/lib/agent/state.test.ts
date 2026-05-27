@@ -40,6 +40,12 @@ describe("AgentStateAnnotation", () => {
       draft: null,
       critique: null,
       critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
     };
     expect(s.runId).toBe("r1");
   });
