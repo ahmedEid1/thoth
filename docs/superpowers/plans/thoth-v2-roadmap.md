@@ -125,6 +125,62 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M30 — Rejection-path e2e + Trigger.dev worker redeploy
+
+**Goal:** Per user direction ("all user stories and cases and
+workflow are working"): cover the rejection branches at every HITL
+gate. Found + fixed a deployment gap along the way.
+
+**What shipped:**
+
+- New test: `reject plan_gate → REJECTED with reason propagated to
+  Run.failureReason`. Drives outbound project to plan_gate, clicks
+  Reject, types reason, confirms. Asserts REJECTED pill + the
+  user's reason on the page (M12 plumbing).
+- New test: `V2 outbound: discovery_gate HITL renders + reject →
+  REJECTED`. Outbound WITHOUT skipDiscoveryGate. Asserts the
+  DiscoveryApprovalCard renders with the discoverer's search
+  queries listed, then rejects the discovery sweep.
+- Inter-test 30s sleep + planner-wait timeout bumped 120s→240s for
+  Mistral free-tier RPM recovery.
+- M29's happy-path test scaled back: maxHits 5→2, stops at
+  papers_gate (rejects to avoid the expensive assessor→drafter→
+  critic→cite_check tail).
+
+**Deployment fix discovered via the new tests:** Existing REJECTED
+runs in the DB had `Run.failureReason: null` even though M12 had
+been merged. Root cause: Vercel auto-deploys the Next.js app, but
+the **Trigger.dev worker is a separate deploy** still carrying
+pre-M12 code. User authorised redeploy ("you can redploy it if you
+want"); pushed Version 20260527.1. Now M12's failureReason
+plumbing actually works in production.
+
+**Memory updated:** `feedback_autonomy_thoth.md` now records that
+Trigger.dev redeploys are authorised on Thoth + the
+non-interactive deploy command pattern.
+
+**`pnpm test:e2e:live:full`: 3/3 passing** in 11.8 min.
+
+**Key files:** `tests/e2e/live-full-pipeline.spec.ts`, trigger.dev worker (deployed externally)
+
+## V2-M29 — Full agent-pipeline e2e against live deploy
+
+**Goal:** Per user direction ("we are using free llms, so cover
+everything"): exercise the complete agent flow including every
+LLM-billing node (planner, discoverer, fetcher, screener, etc.)
+against the deployed app.
+
+**What shipped:**
+
+- New file `tests/e2e/live-full-pipeline.spec.ts` with a V2
+  outbound happy-path test that drives the full agent chain.
+- New `pnpm test:e2e:live:full` alias (separate from the standard
+  `pnpm test:e2e:live` so the fast smoke stays fast).
+- Outbound + skipDiscoveryGate=true + max 2 hits + arXiv only —
+  reliably reaches papers_gate in ~50s on Mistral free tier.
+
+**Key files:** `tests/e2e/live-full-pipeline.spec.ts`, `playwright.config.ts`, `package.json`
+
 ## V2-M28 — Real-user PDF upload in the live e2e
 
 **Goal:** The most user-visible action not yet under live test
