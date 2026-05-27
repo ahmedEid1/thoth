@@ -32,7 +32,7 @@ Lists every Thoth review run you own.
       "status": "PENDING | PLANNING | AWAITING_PLAN_APPROVAL | RETRIEVING | AWAITING_PAPERS_APPROVAL | ASSESSING | DRAFTING | COMPLETED | REJECTED | FAILED",
       "createdAt": "ISO-8601 datetime",
       "completedAt": "ISO-8601 datetime | null",
-      "critiqueScore": "number 0..1 | null",
+      "critiqueScore": "number 1..5 (rubric weighted avg) | null",
       "faithfulnessScore": "number 0..1 | null",
       "claimCount": "integer",
       "citationCount": "integer"
@@ -61,7 +61,7 @@ Returns the full markdown draft of a completed Thoth review.
   "researchQuestion": "string",
   "status": "string",
   "draftMarkdown": "string (the full review.md)",
-  "critiqueScore": "number 0..1 | null",
+  "critiqueScore": "number 1..5 (rubric weighted avg) | null",
   "faithfulnessScore": "number 0..1 | null",
   "criticIterations": "integer (how many critic→revise loops ran)",
   "generatedAt": "ISO-8601 datetime"
