@@ -125,8 +125,8 @@ model CorpusItem {
   // V2 — cross-reference back to the originating record so the assessor + UI
   // can render provenance ("OpenAlex W123…", "arXiv 2310.06770") without a join.
   // Both nullable: uploads have neither; arXiv-only preprints may have just an arxiv id.
-  externalDoi     String?          @unique
-  externalArxivId String?          @unique
+  externalDoi     String?
+  externalArxivId String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -135,6 +135,11 @@ model CorpusItem {
 
   @@index([projectId])
   @@index([status])
+  // V2 — same paper must be unique WITHIN a project but two projects can
+  // both fetch the same DOI/arxiv id. Previous global-unique constraint
+  // broke multi-tenant outbound (second user's fetch crashed indefinitely).
+  @@unique([projectId, externalDoi])
+  @@unique([projectId, externalArxivId])
 }
 
 model Run {

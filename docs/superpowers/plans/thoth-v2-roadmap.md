@@ -125,6 +125,36 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M18 — Multi-tenant unique-constraint fix
+
+**Goal:** Eighth audit bug. `CorpusItem.externalDoi` and
+`externalArxivId` were declared `@unique` (globally unique) in the M0
+migration. Effect: once any user's project fetched paper-X
+(DOI="10.1/foo"), every OTHER user's outbound run that surfaced the
+same paper crashed on a unique-constraint violation when the
+fetcher tried to create the CorpusItem. Multi-tenant outbound was
+broken — second user just couldn't get paper-X into their corpus,
+ever.
+
+**What shipped:**
+
+- New migration
+  `20260527220000_v2_corpus_xref_per_project/migration.sql`:
+  `DROP INDEX IF EXISTS "CorpusItem_externalDoi_key"`,
+  `DROP INDEX IF EXISTS "CorpusItem_externalArxivId_key"`,
+  then create `(projectId, externalDoi)` + `(projectId, externalArxivId)`
+  compound unique indexes. Migration is strictly less restrictive
+  than the previous global unique, so the apply is safe regardless
+  of existing data.
+- `prisma/schema.prisma` reflects the new constraint via
+  `@@unique([projectId, externalDoi])` / `@@unique([projectId,
+  externalArxivId])` (the field-level `@unique` was removed).
+- Prisma client regenerated; no other code change needed (the
+  fetcher's create call passes `projectId` already, so the
+  per-project uniqueness Just Works).
+
+**Key files:** `prisma/schema.prisma`, `prisma/migrations/20260527220000_v2_corpus_xref_per_project/migration.sql`
+
 ## V2-M17 — Screener retry idempotency
 
 **Goal:** Seventh audit bug, found by walking the screener loop one
