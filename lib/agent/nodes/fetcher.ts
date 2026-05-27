@@ -186,8 +186,56 @@ async function fetchOne(
   }
 }
 
+/**
+ * SSRF defense — reject URLs whose host targets internal services.
+ *
+ * The fetcher pulls PDFs from URLs in `DiscoveredPaper.oaUrl`, which
+ * originate in provider responses (OpenAlex / arXiv / Exa). A
+ * compromised or malicious provider response could include URLs
+ * pointing at:
+ *   - localhost / 127.0.0.1 / ::1 — same-host internal services
+ *   - 169.254.x.x — AWS/GCP metadata service (would leak IAM creds)
+ *   - 10.x / 172.16-31.x / 192.168.x — RFC 1918 private subnets
+ *   - Any non-HTTP(S) scheme — file://, ftp://, gopher:// are
+ *     redirect-bait
+ *
+ * Reject all of these BEFORE hitting fetch(). Vercel's network
+ * isolation already blocks the practical cases; Trigger.dev workers
+ * run in different infrastructure where SSRF defense is still useful.
+ */
+export function isSafeExternalUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+
+  const host = parsed.hostname.toLowerCase();
+  if (host === "localhost") return false;
+  if (host === "::1" || host === "[::1]") return false;
+
+  // Quick IPv4 match — full IPv6 + DNS-rebind defense would need
+  // resolution-time checks; this catches the common SSRF probe shapes.
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const a = Number(ipv4[1]);
+    const b = Number(ipv4[2]);
+    if (a === 127) return false; // loopback
+    if (a === 169 && b === 254) return false; // link-local + cloud metadata
+    if (a === 10) return false; // RFC 1918
+    if (a === 192 && b === 168) return false; // RFC 1918
+    if (a === 172 && b >= 16 && b <= 31) return false; // RFC 1918
+    if (a === 0) return false; // wildcard
+  }
+  return true;
+}
+
 /** Return the PDF bytes on success; null on any expected fetch failure. */
 async function downloadPdf(url: string): Promise<Uint8Array | null> {
+  // SSRF defense — reject internal-targeting URLs before the HEAD call.
+  if (!isSafeExternalUrl(url)) return null;
   try {
     // HEAD first to bail out on non-PDF or oversized payloads before
     // streaming. Some servers don't expose Content-Length on HEAD; in that
