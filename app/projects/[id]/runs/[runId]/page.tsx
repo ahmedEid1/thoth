@@ -6,6 +6,7 @@ import { RunStepList } from "@/components/runs/run-step-list";
 import { PlanApprovalCard } from "@/components/runs/plan-approval-card";
 import { PapersApprovalCard } from "@/components/runs/papers-approval-card";
 import { DiscoveryApprovalCard } from "@/components/runs/discovery-approval-card";
+import { DiscoverySummary } from "@/components/runs/discovery-summary";
 import { StrandedCheckpointCard } from "@/components/runs/stranded-checkpoint-card";
 import { DraftView } from "@/components/runs/draft-view";
 import { RefreshTick } from "@/components/runs/refresh-tick";
@@ -26,7 +27,12 @@ export default async function RunPage({
   const run = await db.run.findUnique({
     where: { id: runId },
     include: {
-      project: { select: { ownerId: true, title: true, question: true } },
+      project: {
+        select: {
+          ownerId: true, title: true, question: true,
+          searchScope: true, searchProviders: true,
+        },
+      },
       steps: { orderBy: { startedAt: "asc" } },
       // Fetch BOTH pending checkpoints (for the approve/reject cards) AND
       // any checkpoint with a still-set waitToken (for the "stranded"
@@ -35,9 +41,41 @@ export default async function RunPage({
       // `awaitingDelivery` boolean instead.
       checkpoints: { orderBy: { createdAt: "asc" } },
       claimChecks: { orderBy: { createdAt: "asc" } },
+      // V2 — discovered papers + screening decisions, joined so we can
+      // render the live discovery summary alongside the steps panel.
+      // Empty array for uploaded_only runs.
+      discoveredPapers: {
+        include: { screening: true },
+        orderBy: { initialScore: "desc" },
+      },
     },
   });
   if (!run || run.project.ownerId !== user.id) notFound();
+
+  const isOutbound =
+    run.project.searchScope === "outbound" ||
+    run.project.searchScope === "hybrid";
+
+  // Queries live in the APPROVE_DISCOVERY checkpoint's proposal — pull
+  // them out so the discovery summary can render them even after the
+  // checkpoint is decided. Same source of truth as get_search_queries.
+  const discoveryCheckpoint = run.checkpoints.find((c) => c.kind === "APPROVE_DISCOVERY");
+  const discoveryQueries: string[] = (() => {
+    const proposal = discoveryCheckpoint?.proposal as { queries?: unknown } | null;
+    if (proposal && Array.isArray(proposal.queries)) {
+      return (proposal.queries as unknown[]).filter((q): q is string => typeof q === "string");
+    }
+    return [];
+  })();
+
+  // Provider errors from the discoverer's RunStep.failureReason. The node
+  // writes a "partial: <provider>: <msg>" line per failed provider.
+  const providerErrors = run.steps
+    .filter((s) => s.nodeName === "discoverer" && s.failureReason)
+    .map((s) => ({
+      nodeName: s.nodeName,
+      failureReason: s.failureReason as string,
+    }));
 
   const pendingPlan = run.checkpoints.find(
     (c) => c.kind === "APPROVE_PLAN" && c.status === "PENDING",
@@ -66,9 +104,19 @@ export default async function RunPage({
         <p className="text-xs text-muted-foreground">
           <a href={`/projects/${projectId}`} className="underline">{run.project.title}</a> / run
         </p>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <h1 className="text-2xl font-semibold">{run.question}</h1>
-          <RunStatusPill status={run.status as RunStatus} />
+          <div className="flex items-center gap-2">
+            {isOutbound && (
+              <span
+                className="text-[10px] font-medium uppercase tracking-wider text-[var(--thoth-blue)] bg-[var(--thoth-blue-mist)]/50 px-1.5 py-0.5 rounded"
+                title={`Outbound search · providers: ${run.project.searchProviders.join(", ") || "none"}`}
+              >
+                {run.project.searchScope === "hybrid" ? "hybrid" : "outbound"}
+              </span>
+            )}
+            <RunStatusPill status={run.status as RunStatus} />
+          </div>
         </div>
         {run.failureReason && <p className="text-destructive text-sm">{run.failureReason}</p>}
       </header>
@@ -77,6 +125,30 @@ export default async function RunPage({
         <h2 className="text-lg font-medium">Steps</h2>
         <RunStepList steps={run.steps as never} />
       </section>
+
+      {isOutbound && (discoveryQueries.length > 0 || run.discoveredPapers.length > 0) && (
+        <DiscoverySummary
+          queries={discoveryQueries}
+          discoveredPapers={run.discoveredPapers.map((p) => ({
+            id: p.id,
+            provider: p.provider,
+            externalId: p.externalId,
+            title: p.title,
+            authors: p.authors,
+            publicationYear: p.publicationYear,
+            initialScore: p.initialScore,
+            corpusItemId: p.corpusItemId,
+            screening: p.screening
+              ? {
+                  include: p.screening.include,
+                  relevanceScore: p.screening.relevanceScore,
+                  reason: p.screening.reason,
+                }
+              : null,
+          }))}
+          providerErrors={providerErrors}
+        />
+      )}
 
       {pendingPlan && (
         <PlanApprovalCard

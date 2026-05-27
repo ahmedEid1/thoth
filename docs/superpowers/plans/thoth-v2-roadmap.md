@@ -125,6 +125,33 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M9 — Run-detail discovery summary
+
+**Goal:** Make a v2 run legible at a glance — what queries ran, what
+papers turned up, how the screener voted, which providers failed —
+without users having to install an MCP client to read it.
+
+**What shipped:**
+
+- New `DiscoverySummary` server component
+  (`components/runs/discovery-summary.tsx`) — renders queries +
+  discovered-papers list (provider badge, year, initial score,
+  fetched + screening verdict + reason) + a per-provider error
+  panel that surfaces partial failures inline (e.g. "exa: missing
+  API key") instead of burying them in `RunStep.failureReason`.
+- Run-detail page (`app/projects/[id]/runs/[runId]/page.tsx`):
+  fetches `discoveredPapers` (with their `screening` join) in the
+  same query that loads the run; renders an `outbound` / `hybrid`
+  badge in the run header; mounts the DiscoverySummary panel for
+  outbound runs (gated to only render once queries OR discovered
+  papers exist so v1 runs and freshly-started v2 runs aren't
+  cluttered).
+- Same source-of-truth as the V2 MCP tools: queries come from the
+  APPROVE_DISCOVERY checkpoint's proposal; provider errors come
+  from RunStep where nodeName='discoverer'.
+
+**Key files:** `components/runs/discovery-summary.tsx`, `app/projects/[id]/runs/[runId]/page.tsx`
+
 ## V2-M8 — Search tuning surface (year range + max-hits in the create dialog)
 
 **Goal:** Expose the search-tuning knobs the API already accepted but
