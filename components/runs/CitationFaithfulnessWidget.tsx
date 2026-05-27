@@ -31,6 +31,7 @@ export function CitationFaithfulnessWidget({
   claimChecks,
 }: CitationFaithfulnessWidgetProps) {
   const [open, setOpen] = useState(false);
+  const panelId = "citation-faithfulness-verdicts";
   if (faithfulnessScore == null) return null;
   const pct = Math.round(faithfulnessScore * 100);
   const color =
@@ -54,12 +55,14 @@ export function CitationFaithfulnessWidget({
           type="button"
           className="text-xs text-[var(--thoth-blue)] hover:underline mt-1"
           onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={panelId}
         >
           {open ? "Hide" : "Show"} per-citation verdicts
         </button>
       )}
       {open && (
-        <div className="mt-3 space-y-2 max-h-96 overflow-y-auto">
+        <div id={panelId} className="mt-3 space-y-2 max-h-96 overflow-y-auto">
           {claimChecks.map((c) => (
             <div
               key={c.id}
