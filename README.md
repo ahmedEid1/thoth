@@ -106,7 +106,8 @@ See [`.env.example`](.env.example) for the full env-var list. Non-obvious ones: 
 ## Tests
 
 ```bash
-pnpm test                                                                # 330 unit/integration tests
+pnpm verify                                                              # typecheck + lint + test — the pre-tag check (RELEASING.md)
+pnpm test                                                                # 330 unit/integration tests on their own
 PLAYWRIGHT_BASE_URL=https://thoth-slr.vercel.app pnpm playwright test tests/e2e/mcp-smoke.spec.ts  # 3 live e2e
 pnpm tsx scripts/verify-mcp-audit.ts                                     # spot-check the McpCall audit log
 ```
