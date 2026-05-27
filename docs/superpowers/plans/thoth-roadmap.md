@@ -1,6 +1,6 @@
 # Thoth build roadmap
 
-Build order from M1 through current, with the load-bearing files for each milestone. The full design lives at `docs/superpowers/specs/thoth-design.md`. Release process is in `RELEASING.md`. Current tag: `v1.0.0` (shipped 2026-05-24). Engineering complete; next cycle is distribution.
+Build order from M1 through current, with the load-bearing files for each milestone. The full design lives at `docs/superpowers/specs/thoth-design.md`. Release process is in `RELEASING.md`. Current tag: `v1.0.1` (shipped 2026-05-25). Engineering complete; the post-release commits since v1.0.1 are documented in §Beyond v1.0.1 below.
 
 ## M1 — Workspace foundation
 
@@ -221,9 +221,34 @@ Build order from M1 through current, with the load-bearing files for each milest
 
 ## Beyond v1.0.1
 
-No engineering items currently planned. The dormant
-`lib/demo/clone-review.ts` stays in tree in case a future "tour the
-sample data" flow is wanted; otherwise the build cycle is closed.
+Post-release polish landed directly on master (no further tags yet):
+
+- **Eval regression check made advisory** (commits 4be25ce + 2829f0e).
+  Two empirical sweeps on identical agent code showed ±25-40%
+  per-metric variance on small-N goldens (4-5 expected papers) under
+  the Mistral free tier — wider than any usable threshold. The
+  comparator was first switched from "most recent prior baseline"
+  to "high-water-mark per (goldenId, metric)" to remove ratchet drift,
+  and the gate itself was then demoted to log-only (always exit 0).
+  The `/evals` dashboard remains the authoritative public signal.
+  Full rationale lives in the comment at the bottom of
+  `scripts/check-eval-regression.ts`.
+
+- **Working surfaces tidied** while engineering is in steady state:
+  per-PR `verify.yml` workflow added so typecheck + lint + test gate
+  PRs (previously only the weekly eval cron ran); MCP rate-limit
+  retry-after computed accurately when the daily window is binding
+  (was always 60s); branded `/not-found` and `/error` pages instead
+  of Next.js's unstyled defaults; OG image generated via
+  `app/opengraph-image.tsx`; SEO infra (`/robots.txt`, `/sitemap.xml`)
+  added with crawler unblock in `proxy.ts`; the draft view now
+  renders Markdown via react-markdown instead of `<pre>`. Each is
+  small individually and lives in the git log rather than a tag
+  cycle.
+
+The dormant `lib/demo/clone-review.ts` stays in tree in case a future
+"tour the sample data" flow is wanted; otherwise the build cycle is
+closed.
 
 ## Standards across the build
 
