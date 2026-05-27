@@ -125,6 +125,39 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M17 — Screener retry idempotency
+
+**Goal:** Seventh audit bug, found by walking the screener loop one
+more time. The screener processes up to 50 DiscoveredPapers
+sequentially (Mistral free-tier RPS budget). If paper 25/50 hit a
+rate-limit, the run died — but the first 24 already had
+ScreeningDecision rows persisted. A Trigger.dev retry would crash
+on the FIRST already-screened paper because `db.screeningDecision.
+create({ data })` doesn't check for existing rows and
+`ScreeningDecision.discoveredPaperId` is `@unique`.
+
+**What shipped:**
+
+- The screener now loads existing `ScreeningDecision` rows for the
+  current `runId` at the top of the node, builds a `Map<discoveredPaperId,
+  decision>`, and seeds the in-memory `decisions[]` + `included[]`
+  accumulators from the cached rows. For each paper, if it's
+  already in the map, the LLM call + `screeningDecision.create` are
+  both skipped. Net result: the second attempt only LLM-calls the
+  papers that hadn't been decided yet, and the create call's unique
+  constraint never fires.
+- IncludedPaper specs are rebuilt from the cached decisions too
+  (subject to the same `include && corpusItemId` invariant as fresh
+  runs).
+- One new test: pre-populate
+  `db.screeningDecision.findMany` with paper "a", drive the screener
+  on `[a, b]`, assert (1) `runLLM` called exactly once (for b only),
+  (2) `screeningDecision.create` called exactly once (for b only),
+  (3) returned state includes both decisions (cached a + fresh b),
+  (4) both papers materialize IncludedPaper rows.
+
+**Key files:** `lib/agent/nodes/screener.ts`, `tests/lib/agent/nodes/screener.test.ts`
+
 ## V2-M16 — Hybrid cross-source dedup
 
 **Goal:** Edge case turned up while auditing hybrid mode: if a user
