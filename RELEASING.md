@@ -22,9 +22,11 @@ touches `app/api/mcp/`, `lib/mcp/`, or `app/.well-known/`. ~5 minutes.
 ### Steps
 - [ ] **Run the Playwright smoke** (covers the unauthenticated + metadata paths):
   ```bash
-  pnpm playwright test tests/e2e/mcp-smoke.spec.ts --project=chromium
+  pnpm test:e2e:live
   ```
-  Expected: all 3 tests PASS.
+  Expected: all 3 tests PASS. (Aliased in `package.json` — bakes in
+  `PLAYWRIGHT_BASE_URL=https://thoth-slr.vercel.app` + the spec filter +
+  `--project=chromium`.)
 
 - [ ] **MCP Inspector full OAuth flow**:
   1. `npx @modelcontextprotocol/inspector`
