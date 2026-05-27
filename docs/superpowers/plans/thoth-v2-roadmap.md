@@ -125,6 +125,43 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M33 — SSRF defense in the fetcher
+
+**Goal:** The V2 fetcher pulls PDFs from URLs in `DiscoveredPaper.oaUrl`,
+which originate in provider responses (OpenAlex / arXiv / Exa). A
+compromised or malicious provider response could include URLs
+targeting internal services — `http://localhost`, `http://127.0.0.1`,
+`http://169.254.169.254/latest/meta-data/` (AWS metadata =
+IAM-credential leak), RFC 1918 subnets, or non-HTTP schemes
+(`file://`, `ftp://`, `gopher://`). Defense-in-depth: validate the URL
+shape before calling `fetch()`.
+
+**What shipped:**
+
+- New exported helper `isSafeExternalUrl(url: string): boolean` in
+  `lib/agent/nodes/fetcher.ts`. Rejects:
+    - Non-HTTP(S) schemes
+    - `localhost` / `[::1]` / `127.0.0.0/8` loopback
+    - `169.254.0.0/16` link-local (AWS/GCP metadata service)
+    - RFC 1918 private subnets (10/8, 172.16-31/12, 192.168/16)
+    - The `0.0.0.0` wildcard
+    - Malformed URLs (catches the `new URL(url)` throw)
+- `downloadPdf()` calls the validator before HEAD — keeps the
+  SSRF probe out of the network stack entirely.
+- 9 new tests in `tests/lib/agent/nodes/fetcher-ssrf.test.ts`
+  covering each rejection class + a few "this IP looks private but
+  is NOT actually private" boundary cases (172.15.x.x and 172.32.x.x
+  must pass).
+
+**Limits:** This is a defense-in-depth layer, not a full SSRF
+fix. A DNS-rebind attack (resolve external first, then internal on
+second resolution) would still get through. Vercel's network
+isolation handles that case at the infrastructure level; this
+helper catches the obvious probe shapes before they even leave the
+runtime.
+
+**Key files:** `lib/agent/nodes/fetcher.ts`, `tests/lib/agent/nodes/fetcher-ssrf.test.ts`
+
 ## V2-M32 — Hybrid full-pipeline e2e + run-detail API includes V2 surface
 
 **Goal:** Verify M13's hybrid-mode-merges-uploaded-PDFs fix works
