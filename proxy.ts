@@ -29,6 +29,11 @@ const isPublicRoute = createRouteMatcher([
   "/twitter-image(.*)",
   "/icon(.*)",
   "/apple-icon(.*)",
+  // SEO infrastructure — robots.txt + sitemap.xml are generated from
+  // app/robots.ts and app/sitemap.ts respectively. Search-engine crawlers
+  // can't fetch them via Bearer-less HTTP through the auth wall.
+  "/robots.txt",
+  "/sitemap.xml",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
