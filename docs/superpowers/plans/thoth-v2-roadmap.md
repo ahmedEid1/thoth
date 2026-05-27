@@ -125,6 +125,29 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M6 — Cost-cap safety knobs (per-spec §7)
+
+**Goal:** Implement the cost-cap knobs the v2 design promised so a
+runaway outbound run can't blow the OCR + screener budget.
+
+**What shipped:**
+
+- `MAX_TOKENS_PER_RUN` default bumped 250k → 400k. V1 took ~150k for
+  assessor/drafter/critic/cite_check; v2 adds discoverer + per-paper
+  screener calls + OCR overhead. Per-env override unchanged.
+- New `MAX_DISCOVERED_PAPERS_PER_RUN` env knob (default 50, ceiling
+  100, Zod-validated). After dedup, the discoverer sorts by
+  initialScore DESC and slices to `min(env_cap, project.searchMaxHits)`
+  before persisting, so the fetcher loop never sees more than the
+  configured ceiling. Per-project `searchMaxHits` (already on the
+  Project model from M0) wins when tighter than the env cap; the env
+  cap wins when the project asked for more (operator wins).
+- `AgentState.searchMaxHits` added to plumb the per-project value;
+  `trigger/run-review.ts` hydrates it alongside searchScope +
+  searchProviders.
+
+**Key files:** `lib/env.ts`, `lib/agent/nodes/discoverer.ts`, `lib/agent/state.ts`, `trigger/run-review.ts`, `tests/lib/agent/nodes/discoverer.test.ts`
+
 ## V2-M5 — MCP introspection for V2
 
 **Goal:** Bring V2 capability into the MCP surface so external clients
