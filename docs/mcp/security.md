@@ -57,8 +57,8 @@ Every tool invocation writes one row to the `McpCall` table:
 
 Failed audit writes never fail the user's request — they're logged to
 stderr and ignored. (Spec §3.3.3 calls for emitting a Langfuse span on
-audit-write failure; that integration is deferred to v1.1. Audit-write
-failure rate in v0.7.x will surface in Vercel logs.)
+audit-write failure; that integration remains deferred. Until then,
+audit-write failure rate surfaces only via Vercel function logs.)
 
 ## Rate limits
 
