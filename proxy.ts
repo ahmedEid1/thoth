@@ -18,6 +18,9 @@ const isPublicRoute = createRouteMatcher([
   // by-spec publicly readable (RFC 9728 + RFC 8414).
   "/.well-known/oauth-protected-resource/(.*)",
   "/.well-known/oauth-authorization-server",
+  // RFC 9116 — published security-disclosure surface. Public by spec so
+  // security researchers + auto-scanners can find the policy without auth.
+  "/.well-known/security.txt",
   // Liveness probe for self-host docker healthcheck + external monitors.
   // Must be reachable without auth so unhealthy containers are detected.
   "/api/health",
