@@ -62,7 +62,11 @@ beforeEach(() => {
   });
   mocks.waitCreateToken.mockResolvedValue({ id: "tk_abc" });
   vi.mocked(db.run.findUniqueOrThrow).mockResolvedValue({ id: "r1", projectId: "p1", question: "Q?" } as never);
-  vi.mocked(db.project.findUnique).mockResolvedValue({ question: "Q?" } as never);
+  vi.mocked(db.project.findUnique).mockResolvedValue({
+    question: "Q?",
+    searchScope: "uploaded_only",
+    searchProviders: [],
+  } as never);
   vi.mocked(db.corpusItem.findMany).mockResolvedValue([
     { id: "c1", source: "corpus/p1/c1.pdf", summary: null, status: "PARSED" },
   ] as never);

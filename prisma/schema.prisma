@@ -54,11 +54,18 @@ enum RunStatus {
   COMPLETED
   REJECTED
   FAILED
+  // V2 outbound search:
+  DISCOVERING                  // discoverer running (LLM + provider fan-out)
+  AWAITING_DISCOVERY_APPROVAL  // discovery_gate HITL
+  FETCHING                     // PDF download + OCR
+  SCREENING                    // per-paper inclusion verdict
 }
 
 enum CheckpointKind {
   APPROVE_PLAN
   APPROVE_PAPERS
+  // V2 outbound search — user reviews the generated queries + top hits.
+  APPROVE_DISCOVERY
 }
 
 enum CheckpointStatus {

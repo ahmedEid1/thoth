@@ -23,6 +23,18 @@ type InterruptValue =
         relevanceScore: number;
         inclusionReason: string;
       }>;
+    }
+  | {
+      kind: "APPROVE_DISCOVERY";
+      queries: string[];
+      discoveredPapers: Array<{
+        id: string;
+        externalId: string;
+        provider: string;
+        title: string;
+        abstract: string | null;
+        accessStatus: string;
+      }>;
     };
 
 type GraphResult = {
@@ -55,7 +67,13 @@ export const runReviewTask = schemaTask({
       const run = await db.run.findUniqueOrThrow({ where: { id: runId } });
       const project = await db.project.findUnique({
         where: { id: (run as { projectId: string }).projectId },
-        select: { question: true },
+        select: {
+          question: true,
+          // V2 search-scope configuration; defaults preserve V1 behaviour
+          // for every existing project (per the migration default).
+          searchScope: true,
+          searchProviders: true,
+        },
       });
       if (!project) throw new Error(`Project for run ${runId} not found`);
 
@@ -81,6 +99,18 @@ export const runReviewTask = schemaTask({
         papersApproved: null,
         claims: [],
         draft: null,
+        // V2 outbound search wiring. uploaded_only projects get the V1
+        // path via the conditional edge in graph.ts; outbound / hybrid
+        // route through discoverer → fetcher → screener instead.
+        searchScope: project.searchScope,
+        searchProviders: project.searchProviders.filter(
+          (p): p is "openalex" | "arxiv" | "exa" =>
+            p === "openalex" || p === "arxiv" || p === "exa",
+        ),
+        discoveryQueries: [],
+        discoveredPapers: [],
+        discoveryApproved: null,
+        screeningDecisions: [],
       };
 
       const graph = await buildGraph();
@@ -113,7 +143,9 @@ export const runReviewTask = schemaTask({
           status:
             intr.kind === "APPROVE_PLAN"
               ? "AWAITING_PLAN_APPROVAL"
-              : "AWAITING_PAPERS_APPROVAL",
+              : intr.kind === "APPROVE_DISCOVERY"
+                ? "AWAITING_DISCOVERY_APPROVAL"
+                : "AWAITING_PAPERS_APPROVAL",
         });
 
         // Side-effect persistence: after the retriever segment, persist included papers

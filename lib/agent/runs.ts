@@ -34,7 +34,13 @@ export async function setRunStatus(args: {
     | "DRAFTING"
     | "COMPLETED"
     | "REJECTED"
-    | "FAILED";
+    | "FAILED"
+    // V2 outbound-search statuses (lib/agent/graph.ts routes through these
+    // when project.searchScope is outbound or hybrid).
+    | "DISCOVERING"
+    | "AWAITING_DISCOVERY_APPROVAL"
+    | "FETCHING"
+    | "SCREENING";
   triggerRunId?: string;
 }): Promise<void> {
   await db.run.update({
@@ -108,7 +114,7 @@ export async function findCorpusSummary(corpusItemId: string): Promise<string | 
 
 export async function recordCheckpoint(args: {
   runId: string;
-  kind: "APPROVE_PLAN" | "APPROVE_PAPERS";
+  kind: "APPROVE_PLAN" | "APPROVE_PAPERS" | "APPROVE_DISCOVERY";
   proposal: Prisma.InputJsonValue;
   waitToken: string;
 }): Promise<{ id: string }> {

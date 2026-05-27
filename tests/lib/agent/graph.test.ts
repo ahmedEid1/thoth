@@ -3,6 +3,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   planner: vi.fn(),
   retriever: vi.fn(),
+  discoverer: vi.fn(),
+  fetcher: vi.fn(),
+  screener: vi.fn(),
   assessor: vi.fn(),
   drafter: vi.fn(),
   critic: vi.fn(),
@@ -11,6 +14,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/agent/nodes/planner", () => ({ plannerNode: mocks.planner }));
 vi.mock("@/lib/agent/nodes/retriever", () => ({ retrieverNode: mocks.retriever }));
+vi.mock("@/lib/agent/nodes/discoverer", () => ({ discovererNode: mocks.discoverer }));
+vi.mock("@/lib/agent/nodes/fetcher", () => ({ fetcherNode: mocks.fetcher }));
+vi.mock("@/lib/agent/nodes/screener", () => ({ screenerNode: mocks.screener }));
 vi.mock("@/lib/agent/nodes/assessor", () => ({ assessorNode: mocks.assessor }));
 vi.mock("@/lib/agent/nodes/drafter", () => ({ drafterNode: mocks.drafter }));
 vi.mock("@/lib/agent/nodes/critic", () => ({ criticNode: mocks.critic }));
@@ -26,6 +32,9 @@ vi.mock("@/lib/agent/checkpointer", async () => {
 beforeEach(() => {
   mocks.planner.mockReset();
   mocks.retriever.mockReset();
+  mocks.discoverer.mockReset();
+  mocks.fetcher.mockReset();
+  mocks.screener.mockReset();
   mocks.assessor.mockReset();
   mocks.drafter.mockReset();
   mocks.critic.mockReset();
@@ -43,6 +52,12 @@ const initialState = {
   papersApproved: null,
   claims: [],
   draft: null,
+  searchScope: "uploaded_only" as const,
+  searchProviders: [],
+  discoveryQueries: [],
+  discoveredPapers: [],
+  discoveryApproved: null,
+  screeningDecisions: [],
 };
 
 describe("agent graph", () => {
@@ -119,6 +134,120 @@ describe("agent graph", () => {
     expect(mocks.drafter).toHaveBeenCalledTimes(1);
     expect(mocks.critic).toHaveBeenCalledTimes(1);
     expect(mocks.citeCheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("V2 outbound: routes plan_gate → discoverer → discovery_gate → fetcher → screener → papers_gate, skipping retriever", async () => {
+    mocks.planner.mockResolvedValue({
+      plan: {
+        picoc: { population: "p", intervention: "i", comparison: "c", outcome: "o", context: "ctx" },
+        subQuestions: ["q1"],
+        inclusionCriteria: [],
+        exclusionCriteria: [],
+      },
+    });
+    mocks.discoverer.mockResolvedValue({
+      discoveryQueries: ["q"],
+      discoveredPapers: [
+        {
+          id: "dp1",
+          provider: "arxiv",
+          externalId: "arxiv:2310.06770",
+          title: "T",
+          abstract: "A",
+          oaUrl: "https://arxiv.org/pdf/2310.06770",
+          accessStatus: "open",
+          corpusItemId: null,
+        },
+      ],
+    });
+    mocks.fetcher.mockResolvedValue({
+      discoveredPapers: [
+        {
+          id: "dp1",
+          provider: "arxiv",
+          externalId: "arxiv:2310.06770",
+          title: "T",
+          abstract: "A",
+          oaUrl: "https://arxiv.org/pdf/2310.06770",
+          accessStatus: "open",
+          corpusItemId: "ci_dp1",
+        },
+      ],
+    });
+    mocks.screener.mockResolvedValue({
+      includedPapers: [{ corpusItemId: "ci_dp1", relevanceScore: 0.9, inclusionReason: "r" }],
+      screeningDecisions: [
+        { discoveredPaperId: "dp1", include: true, relevanceScore: 0.9, reason: "r" },
+      ],
+    });
+    mocks.assessor.mockResolvedValue({ claims: [{ includedPaperId: "ci_dp1", text: "X", category: "finding" }] });
+    mocks.drafter.mockResolvedValue({ draft: "Draft [ci_dp1]." });
+    mocks.critic.mockResolvedValue({
+      critique: {
+        decision: "approve",
+        overallScore: 4.5,
+        rubric: { faithfulness: 5, completeness: 4, citationQuality: 5, clarity: 4 },
+        actionableFeedback: "good",
+      },
+      critiqueIterations: 1,
+    });
+    mocks.citeCheck.mockResolvedValue({});
+
+    const { buildGraph } = await import("@/lib/agent/graph");
+    const { Command } = await import("@langchain/langgraph");
+    const graph = await buildGraph();
+    const config = { configurable: { thread_id: "r_v2" } };
+
+    const outboundState = {
+      ...initialState,
+      runId: "r_v2",
+      searchScope: "outbound" as const,
+      searchProviders: ["arxiv" as const],
+    };
+
+    await graph.invoke(outboundState, config);
+    // plan_gate
+    await graph.invoke(new Command({ resume: { approved: true } }), config);
+    // discovery_gate (after discoverer ran)
+    await graph.invoke(new Command({ resume: { approved: true } }), config);
+    // papers_gate (after fetcher + screener)
+    await graph.invoke(new Command({ resume: { approved: true } }), config);
+
+    expect(mocks.retriever).not.toHaveBeenCalled();
+    expect(mocks.discoverer).toHaveBeenCalledTimes(1);
+    expect(mocks.fetcher).toHaveBeenCalledTimes(1);
+    expect(mocks.screener).toHaveBeenCalledTimes(1);
+    expect(mocks.assessor).toHaveBeenCalledTimes(1);
+  });
+
+  it("V2 outbound: rejecting discovery_gate routes to END (no fetcher / screener / assessor)", async () => {
+    mocks.planner.mockResolvedValue({
+      plan: {
+        picoc: { population: "p", intervention: "i", comparison: "c", outcome: "o", context: "ctx" },
+        subQuestions: [], inclusionCriteria: [], exclusionCriteria: [],
+      },
+    });
+    mocks.discoverer.mockResolvedValue({
+      discoveryQueries: ["q"],
+      discoveredPapers: [],
+    });
+
+    const { buildGraph } = await import("@/lib/agent/graph");
+    const { Command } = await import("@langchain/langgraph");
+    const graph = await buildGraph();
+    const config = { configurable: { thread_id: "r_v2_rej" } };
+
+    await graph.invoke(
+      { ...initialState, runId: "r_v2_rej", searchScope: "outbound" as const, searchProviders: ["arxiv" as const] },
+      config,
+    );
+    await graph.invoke(new Command({ resume: { approved: true } }), config);
+    await graph.invoke(new Command({ resume: { approved: false, rejectionReason: "bad hits" } }), config);
+
+    expect(mocks.discoverer).toHaveBeenCalledTimes(1);
+    expect(mocks.fetcher).not.toHaveBeenCalled();
+    expect(mocks.screener).not.toHaveBeenCalled();
+    expect(mocks.assessor).not.toHaveBeenCalled();
   });
 
   it("skips retriever/assessor/drafter when plan is rejected", async () => {
