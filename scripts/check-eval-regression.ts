@@ -48,25 +48,35 @@ async function main(): Promise<void> {
 
   console.log(`→ Checking ${current.rows.length} new metrics for regressions vs the last baseline...`);
 
+  // Compare against the HIGHEST historical score for each (goldenId, metric),
+  // not the most recent one. Two reasons:
+  //   1. Mistral non-determinism on small-N denominators means the most-recent
+  //      score is noisy by ±20-25% — comparing against "previous run" trips the
+  //      guard on natural variance even when the agent code hasn't changed.
+  //   2. Comparing against the peak prevents "ratchet drift" where the score
+  //      quietly drops a bit each run and the cumulative loss goes unnoticed
+  //      because each step is under threshold.
+  // Net effect: the guard fires on true regressions from project peak, not on
+  // day-to-day LLM-judge variance.
+  //
+  // Implemented as a single groupBy(goldenId, metric) over all historical rows
+  // (excluding the current sweep's commit) instead of one aggregate per row —
+  // 17×4=68 sequential queries shrunk to one round-trip.
+  const historicalPeaks = await db.evalRun.groupBy({
+    by: ["goldenId", "metric"],
+    _max: { score: true },
+    where: { NOT: { commitSha: current.commitSha } },
+  });
+  const peakByKey = new Map<string, number>();
+  for (const p of historicalPeaks) {
+    if (p._max.score === null) continue;
+    peakByKey.set(`${p.goldenId}::${p.metric}`, p._max.score);
+  }
+
   let failures = 0;
   for (const row of current.rows) {
-    // Compare against the HIGHEST historical score for this (goldenId,
-    // metric), not the most recent one. Two reasons:
-    //   1. Mistral non-determinism on small-N denominators means the
-    //      most-recent score is noisy by ±20-25% — comparing against
-    //      "previous run" trips the guard on natural variance even when
-    //      the agent code hasn't changed.
-    //   2. Comparing against the peak prevents "ratchet drift" where the
-    //      score quietly drops a bit each run and the cumulative loss
-    //      goes unnoticed because each step is under threshold.
-    // Net effect: the guard fires on true regressions from project peak,
-    // not on day-to-day LLM-judge variance.
-    const agg = await db.evalRun.aggregate({
-      _max: { score: true },
-      where: { goldenId: row.goldenId, metric: row.metric, NOT: { commitSha: current.commitSha } },
-    });
-    const peakScore = agg._max.score;
-    if (peakScore === null) {
+    const peakScore = peakByKey.get(`${row.goldenId}::${row.metric}`);
+    if (peakScore === undefined) {
       console.log(`  ${row.goldenId}/${row.metric}: new — no baseline yet (current=${row.score.toFixed(2)})`);
       continue;
     }
