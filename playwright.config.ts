@@ -27,9 +27,11 @@ export default defineConfig({
         {
           name: "chromium",
           use: { browserName: "chromium" },
-          // Live mode: only the MCP smoke runs. No Clerk-session setup —
-          // mcp-smoke exercises the live OAuth flow itself.
-          testMatch: /mcp-smoke\.spec\.ts/,
+          // Live mode: the API-level MCP smoke + the real-browser public-
+          // surface smoke. Both exercise the deploy without needing a
+          // Clerk-session setup (mcp-smoke runs the unauthenticated half
+          // of the OAuth flow; live-browser-smoke hits only public pages).
+          testMatch: /(mcp-smoke|live-browser-smoke)\.spec\.ts/,
         },
       ]
     : [
