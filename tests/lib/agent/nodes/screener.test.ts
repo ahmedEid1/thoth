@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => {
     findCorpusMarkdown: vi.fn(),
     assertWithinBudget: vi.fn(),
     screeningDecisionCreate: vi.fn(),
+    screeningDecisionFindMany: vi.fn(),
     FakeBudgetExceededError,
   };
 });
@@ -36,7 +37,10 @@ vi.mock("@/lib/agent/cost-cap", () => ({
 }));
 vi.mock("@/lib/db", () => ({
   db: {
-    screeningDecision: { create: mocks.screeningDecisionCreate },
+    screeningDecision: {
+      create: mocks.screeningDecisionCreate,
+      findMany: mocks.screeningDecisionFindMany,
+    },
   },
 }));
 
@@ -83,6 +87,7 @@ beforeEach(() => {
   mocks.assertWithinBudget.mockResolvedValue({ tokensUsed: 0, limit: 250000 });
   mocks.findCorpusMarkdown.mockResolvedValue("# Full text body");
   mocks.screeningDecisionCreate.mockResolvedValue({ id: "sd_x" });
+  mocks.screeningDecisionFindMany.mockResolvedValue([]);
 });
 
 describe("screenerNode", () => {
@@ -179,5 +184,47 @@ describe("screenerNode", () => {
       }),
     ).rejects.toThrow(/Mistral 503/);
     expect(mocks.screeningDecisionCreate).not.toHaveBeenCalled();
+  });
+
+  // Trigger.dev retry safety: when a partial screening already wrote some
+  // ScreeningDecision rows to the DB (run died mid-loop), the retry replays
+  // the screener node. Without this idempotency, the first already-screened
+  // paper would crash on the @@unique([discoveredPaperId]) constraint.
+  it("skips LLM calls for papers that already have a persisted ScreeningDecision (retry idempotency)", async () => {
+    // Two discovered papers, paper a already screened in a previous attempt.
+    mocks.screeningDecisionFindMany.mockResolvedValue([
+      {
+        discoveredPaperId: "a",
+        include: true,
+        reason: "matches scope",
+        relevanceScore: 0.88,
+      },
+    ]);
+
+    mocks.runLLM.mockResolvedValue({
+      output: { include: true, reason: "also matches", relevanceScore: 0.75 },
+      traceUrl: "",
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+    });
+
+    const r = await screenerNode({
+      ...baseState,
+      discoveredPapers: [dp("a", true), dp("b", true)],
+    });
+
+    // LLM was called ONCE — only for paper b, not for already-decided a.
+    expect(mocks.runLLM).toHaveBeenCalledTimes(1);
+    // ScreeningDecision row was created ONCE — for paper b only.
+    expect(mocks.screeningDecisionCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.screeningDecisionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ discoveredPaperId: "b" }),
+      }),
+    );
+    // Returned state includes BOTH decisions (the cached one + the fresh one).
+    expect(r.screeningDecisions).toHaveLength(2);
+    expect(r.screeningDecisions!.map((d) => d.discoveredPaperId).sort()).toEqual(["a", "b"]);
+    // IncludedPaper is re-hydrated from the cached decision too.
+    expect(r.includedPapers).toHaveLength(2);
   });
 });

@@ -53,10 +53,42 @@ export async function screenerNode(
       return { includedPapers: [], screeningDecisions: [] };
     }
 
-    const decisions: ScreeningRef[] = [];
+    // Idempotency: a Trigger.dev retry that replays this node mid-flight
+    // would otherwise crash on the @@unique([discoveredPaperId]) constraint
+    // when the first already-screened paper hits db.screeningDecision.create.
+    // Load existing decisions, seed the in-memory accumulators from them,
+    // and skip the LLM call for any paper that already has a decision.
+    const existing = await db.screeningDecision.findMany({
+      where: { runId: state.runId },
+      select: { discoveredPaperId: true, include: true, reason: true, relevanceScore: true },
+    });
+    const alreadyDecided = new Map(existing.map((d) => [d.discoveredPaperId, d]));
+
+    const decisions: ScreeningRef[] = existing.map((d) => ({
+      discoveredPaperId: d.discoveredPaperId,
+      include: d.include,
+      relevanceScore: d.relevanceScore,
+      reason: d.reason,
+    }));
     const included: IncludedPaperSpec[] = [];
+    // Re-hydrate IncludedPaper specs for already-decided include=true papers
+    // so the screener's return value is consistent with a fresh run. The
+    // paper.corpusItemId check below preserves the "include=true but
+    // fetch failed → not in IncludedPaper" semantics.
+    for (const paper of state.discoveredPapers) {
+      const prior = alreadyDecided.get(paper.id);
+      if (prior?.include && paper.corpusItemId) {
+        included.push({
+          corpusItemId: paper.corpusItemId,
+          relevanceScore: prior.relevanceScore,
+          inclusionReason: prior.reason,
+        });
+      }
+    }
 
     for (const paper of state.discoveredPapers) {
+      if (alreadyDecided.has(paper.id)) continue;
+
       await assertWithinBudget(state.runId);
 
       const fullText = paper.corpusItemId
