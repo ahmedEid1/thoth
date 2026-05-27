@@ -34,12 +34,18 @@ touches `app/api/mcp/`, `lib/mcp/`, or `app/.well-known/`. ~5 minutes.
   3. URL: `https://thoth-slr.vercel.app/api/mcp/mcp`
   4. Click "Connect" — browser pops Clerk sign-in
   5. Sign in / sign up
-  6. Expect: 3 tools appear in the left pane
+  6. Expect: 5 tools appear in the left pane (3 v1 + 2 v2)
   7. Click `list_reviews` → Call Tool → expect: JSON array of your reviews
   8. Pick a `reviewId` from step 7. Click `get_review_draft` → input
      `{"reviewId": "<id>"}` → Call Tool → expect: markdown body
   9. Click `get_citation_audit` → same `reviewId` → expect: per-claim
      verdicts with counts
+  10. *(v2)* Click `list_discovered_papers` → same `reviewId` → expect:
+      for an outbound review, the discovered-papers list with screening
+      verdicts; for a v1 review, an empty list + `searchScope: "uploaded_only"`
+  11. *(v2)* Click `get_search_queries` → same `reviewId` → expect: for
+      an outbound review, the LLM-generated queries + provider set; for
+      a v1 review, an empty `queries` list
 
 - [ ] **Claude Desktop install** (proves the install-and-use path works end-to-end):
   1. Claude Desktop → Settings → Developer → Edit Config → add an MCP server
