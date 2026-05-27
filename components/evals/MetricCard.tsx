@@ -39,7 +39,15 @@ export function MetricCard({ label, value, description }: MetricCardProps) {
         </span>
       </div>
 
-      <div className="relative h-[3px] bg-[var(--thoth-rule)] rounded-full overflow-hidden">
+      <div
+        role="progressbar"
+        aria-label={label}
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuetext={`${pct} percent`}
+        className="relative h-[3px] bg-[var(--thoth-rule)] rounded-full overflow-hidden"
+      >
         <div
           className="absolute inset-y-0 left-0 rounded-full transition-all"
           style={{ width: `${pct}%`, backgroundColor: hue }}
