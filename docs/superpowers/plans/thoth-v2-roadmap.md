@@ -125,6 +125,42 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M23 — Live-deploy real-browser e2e smoke
+
+**Goal:** The existing `pnpm test:e2e:live` only exercised the MCP
+transport (3 API-level checks). User asked for a "real user in a
+browser against the deployed version" check too.
+
+**What shipped:**
+
+- New `tests/e2e/live-browser-smoke.spec.ts` (5 tests, all run in
+  a real Chromium under Playwright against
+  `https://thoth-slr.vercel.app`):
+    1. Home page renders the headline + a primary CTA.
+    2. `/api/health` returns `{ ok: true, dbReachable: true,
+       commitSha: <git sha> }`.
+    3. `/evals` dashboard renders with at least one metric tile.
+    4. `/showcase` renders the seeded exemplar (or `test.skip` if
+       the deploy hasn't run `pnpm seed:showcase` yet).
+    5. `/.well-known/security.txt` serves per RFC 9116.
+- `playwright.config.ts` `IS_LIVE` projects' testMatch widens to
+  `(mcp-smoke|live-browser-smoke).spec.ts`.
+- `package.json` `test:e2e:live` alias adds the new spec to the
+  test list.
+- README test row updates to "463 unit/integration + 8 live e2e
+  (3 MCP-transport + 5 real-browser)".
+- `RELEASING.md` MCP-smoke checklist references the 8-test surface.
+
+**What this does NOT cover (intentionally):**
+
+- Authenticated flows (create project, start a run, the v2 outbound
+  pipeline end-to-end). Those need a real Clerk session, would
+  write to prod, and would bill Mistral + LLM tokens per CI run.
+  RELEASING.md's manual MCP Inspector + Claude Desktop walkthrough
+  covers them.
+
+**Key files:** `tests/e2e/live-browser-smoke.spec.ts`, `playwright.config.ts`, `package.json`, `README.md`, `RELEASING.md`
+
 ## V2-M22 — segmentStatus is V2-aware (DISCOVERING/FETCHING were dead enums)
 
 **Goal:** Tenth audit fix. The Run.status enum declared

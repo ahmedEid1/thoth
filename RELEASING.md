@@ -20,13 +20,20 @@ touches `app/api/mcp/`, `lib/mcp/`, or `app/.well-known/`. ~5 minutes.
   Dashboard (Configure → OAuth Applications → "Dynamic client registration")
 
 ### Steps
-- [ ] **Run the Playwright smoke** (covers the unauthenticated + metadata paths):
+- [ ] **Run the Playwright smoke** (covers the unauthenticated MCP paths
+  + the public real-browser surface):
   ```bash
   pnpm test:e2e:live
   ```
-  Expected: all 3 tests PASS. (Aliased in `package.json` — bakes in
-  `PLAYWRIGHT_BASE_URL=https://thoth-slr.vercel.app` + the spec filter +
-  `--project=chromium`.)
+  Expected: all 8 tests PASS. 3 MCP-transport checks (`mcp-smoke.spec.ts`:
+  401-WWW-Authenticate, OAuth Protected Resource Metadata, DCR-enabled
+  Authorization Server Metadata) + 5 real-browser checks
+  (`live-browser-smoke.spec.ts`: home page renders, `/api/health` reports
+  ok + dbReachable, `/evals` dashboard renders with metric tiles,
+  `/showcase` renders the seeded exemplar, `/.well-known/security.txt`
+  served per RFC 9116). Aliased in `package.json` — bakes in
+  `PLAYWRIGHT_BASE_URL=https://thoth-slr.vercel.app` + the spec list +
+  `--project=chromium`.
 
 - [ ] **MCP Inspector full OAuth flow**:
   1. `npx @modelcontextprotocol/inspector`
