@@ -170,11 +170,6 @@ Open V2-spec items that didn't ship in v2.0:
   query strings + per-provider failures to RunStep.failureReason today,
   which is the on-disk audit. A dedicated table is easier to query but
   not load-bearing yet.
-- **Provider-specific data-residency callouts in
-  `docs/security-and-privacy.md`.** §2 of that doc currently lists
-  Mistral / Neon / etc. but doesn't yet break out OpenAlex (US) /
-  arXiv (US) / Exa (US) for outbound projects. Adding the table row is
-  a follow-up commit.
 - **Real v2-mode goldens** + `EVAL_MODE=outbound` CI path. The metrics
   + schema field are wired; the YAMLs themselves need maintainer input.
 - **Query-editing in the discovery_gate UI.** The first cut shows

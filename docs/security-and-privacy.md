@@ -26,8 +26,10 @@ table below is a human summary of what each row actually holds.
 | `CorpusItem` | `source` blob key (`corpus/<projectId>/<uuid>.pdf`), `parsedMarkdown` (full text extracted by Mistral OCR), `summary` (structured summary JSON). The raw PDF lives on R2 under `source`. | User-uploaded content |
 | `Run` | Agent run state + final `draft` markdown + scores. | Agent output |
 | `RunStep` | Per-node trace + token counts. No prompt or response payload. | Operational metadata |
-| `HumanCheckpoint` | `proposal` (the plan / paper list the agent is asking the user to approve) and `decisionPayload` (the user's approve/reject choice). | User decisions |
+| `HumanCheckpoint` | `proposal` (the plan / paper list / **discovered-papers list for v2 outbound runs** the agent is asking the user to approve) and `decisionPayload` (the user's approve/reject choice). | User decisions |
 | `IncludedPaper` / `ExtractedClaim` / `ClaimCheck` | Per-claim cite_check audit trail. | Agent output |
+| `DiscoveredPaper` *(v2)* | One row per paper the discoverer surfaced from an academic index (title, authors, abstract, DOI / arXiv id / OpenAlex W-id, initial relevance score). No raw provider payload. | Public metadata about published papers |
+| `ScreeningDecision` *(v2)* | The screener LLM's include/exclude verdict per discovered paper. | Agent output |
 | `McpCall` | Audit log: `userId`, `toolName`, `inputHash` (SHA-256), `reviewId`, `status`, `latencyMs`, `createdAt`. **Raw tool inputs are never stored** — only the SHA-256 of canonical-JSON. | Audit log |
 | `EvalRun` | `goldenId`, `metric`, `score`, `commitSha`, `createdAt`. No user data. | Internal QA |
 | R2 bucket | Raw uploaded PDFs (PDF only — refused at `app/api/corpus/upload/route.ts` otherwise) and exported parsed markdown blobs. | User-uploaded content |
@@ -53,8 +55,12 @@ What we deliberately **don't** store:
 | Trigger.dev Cloud | US | Background jobs (parse-pdf, summarize, run-review, guest-cleanup, eval workflow, checkpoint-outbox) | **US jurisdiction — known limit.** Trigger.dev is one of the deliberate trade-offs in the `$0/month` cloud stack. Self-host bypasses this. |
 | Clerk Cloud | US | Auth (web sessions, OAuth 2.1, DCR for MCP) | **US jurisdiction — known limit.** Same trade-off note. |
 | Mistral API (default LLM) | EU | LLM inference + PDF OCR | Other configured providers (Groq / Gemini / Anthropic / OpenAI / Claude Agent SDK) have their own data-residency stories — see the README LLM-provider table. The provider is a single env var (`LLM_PROVIDER`); a fallback (`LLM_FALLBACK_PROVIDER`) can route around a primary outage. |
+| OpenAlex API *(v2 outbound only)* | US (`api.openalex.org`) | Search queries + paper-metadata responses | **Outbound projects only.** Public service — no API key, no per-user identification. Each request sends an LLM-generated search query (a string derived from the user's research question + plan); responses contain only public scholarly metadata. No auth header, no user identifier ever leaves Thoth. Polite-pool guidance ([docs.openalex.org](https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication#the-polite-pool)) accepts an optional `mailto=` query param — Thoth does not send one. |
+| arXiv API *(v2 outbound only)* | US (`export.arxiv.org`) | Search queries + Atom feed responses | **Outbound projects only.** Public service — no API key. Each request sends a search query string; responses are public Atom XML. Sequential pacing (≥3 s between calls per arXiv's [API user manual](https://info.arxiv.org/help/api/user-manual.html#rate-limits)) is enforced in `lib/agent/nodes/discoverer.ts`. |
+| Exa API *(v2 outbound only — opt-in)* | US (`api.exa.ai`) | Search queries + semantic-search responses | **Outbound projects only, and only when `EXA_API_KEY` is set on the deploy AND the project explicitly selects Exa as a provider.** Sends `x-api-key` header + the user's LLM-generated search query in the body. Default config (OpenAlex + arXiv) does NOT touch Exa. The provider list is per-project, picked at project-create time in the UI. |
+| Mistral OCR API *(v2 outbound also)* | EU | PDF OCR for discovered PDFs | Same Mistral endpoint already used for uploaded PDFs. v2's fetcher downloads open-access PDFs from publisher / arXiv mirrors and OCRs them through the same path. |
 
-**For full EU jurisdiction**: deploy via [`docs/self-host/oracle-cloud-quickstart.md`](self-host/oracle-cloud-quickstart.md) on Oracle Cloud Always Free in Frankfurt — Thoth + Postgres + MinIO + Langfuse all run on one VM under your control, leaving only the LLM provider as the outbound dependency (Mistral keeps you in the EU there too).
+**For full EU jurisdiction**: deploy via [`docs/self-host/oracle-cloud-quickstart.md`](self-host/oracle-cloud-quickstart.md) on Oracle Cloud Always Free in Frankfurt — Thoth + Postgres + MinIO + Langfuse all run on one VM under your control, leaving only the LLM provider as the outbound dependency (Mistral keeps you in the EU there too). **v2 outbound search** still requires reaching the academic indices (OpenAlex / arXiv / Exa, all US-hosted) — for a strict-EU posture, keep projects in `searchScope: "uploaded_only"` (the default — existing projects are unaffected). The `SEARCH_DISABLED=1` operator kill switch (`lib/env.ts`) disables outbound search at the deploy level regardless of per-project config. 
 
 ---
 
@@ -105,6 +111,7 @@ There is no self-serve "export my data" endpoint yet. That's the most commonly-r
 - **No tracking cookies.** Clerk cookies are session-only. The site sets no marketing or third-party cookies.
 - **No CAPTCHA.** Clerk handles bot signups on its end; the demo flow is rate-limited at the API layer.
 - **No data-sharing with the LLM providers beyond the prompts themselves.** Mistral / Anthropic / OpenAI / Groq each have their own terms; check them for the provider you choose. Mistral's free Experiment tier (our default) is explicitly EU-jurisdiction.
+- **No outbound search by default.** The `Project.searchScope` column defaults to `"uploaded_only"` — every project Thoth has ever created (and every future one whose creator doesn't tick the outbound box) stays on the v1 uploaded-PDF-only path with no calls to OpenAlex / arXiv / Exa. Outbound search is opt-in per project, opt-in per provider, and globally killable via `SEARCH_DISABLED=1`.
 
 ---
 
