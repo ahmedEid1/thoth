@@ -73,6 +73,7 @@ export const runReviewTask = schemaTask({
           // for every existing project (per the migration default).
           searchScope: true,
           searchProviders: true,
+          searchMaxHits: true,
         },
       });
       if (!project) throw new Error(`Project for run ${runId} not found`);
@@ -107,6 +108,7 @@ export const runReviewTask = schemaTask({
           (p): p is "openalex" | "arxiv" | "exa" =>
             p === "openalex" || p === "arxiv" || p === "exa",
         ),
+        searchMaxHits: project.searchMaxHits,
         discoveryQueries: [],
         discoveredPapers: [],
         discoveryApproved: null,

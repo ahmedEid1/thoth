@@ -8,7 +8,10 @@ const mocks = vi.hoisted(() => ({
   assertWithinBudget: vi.fn(),
   createMany: vi.fn(),
   findMany: vi.fn(),
-  envMock: {} as { SEARCH_DISABLED?: string },
+  envMock: { MAX_DISCOVERED_PAPERS_PER_RUN: 50 } as {
+    SEARCH_DISABLED?: string;
+    MAX_DISCOVERED_PAPERS_PER_RUN: number;
+  },
 }));
 const envMock = mocks.envMock;
 
@@ -58,6 +61,7 @@ const baseState: AgentState = {
   critiqueIterations: 0,
   searchScope: "outbound",
   searchProviders: ["openalex", "arxiv"],
+  searchMaxHits: null,
   discoveryQueries: [],
   discoveredPapers: [],
   discoveryApproved: null,
@@ -244,5 +248,90 @@ describe("discovererNode", () => {
         failureReason: expect.stringContaining("LLM hiccup"),
       }),
     );
+  });
+
+  it("caps the persisted hit list at env.MAX_DISCOVERED_PAPERS_PER_RUN (safety knob)", async () => {
+    envMock.MAX_DISCOVERED_PAPERS_PER_RUN = 3;
+    mocks.runLLM.mockResolvedValue({
+      output: { queries: ["q1"], rationale: "x." },
+      traceUrl: "",
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+    });
+    const tenHits = Array.from({ length: 10 }, (_, i) => ({
+      provider: "openalex" as const,
+      externalId: `10.1/p${i}`,
+      title: `paper ${i}`,
+      authors: [],
+      abstract: null,
+      publicationYear: 2024,
+      venue: null,
+      citationCount: null,
+      oaUrl: null,
+      accessStatus: "unknown" as const,
+      // Decreasing score so the top-3 by relevance is unambiguous.
+      initialScore: 1 - i * 0.05,
+    }));
+    mocks.dispatchSearch.mockResolvedValue({ hits: tenHits, errors: [] });
+    mocks.findMany.mockResolvedValue([]);
+
+    await discovererNode(baseState);
+
+    const createCall = mocks.createMany.mock.calls[0]![0];
+    expect(createCall.data).toHaveLength(3);
+    expect(createCall.data.map((d: { externalId: string }) => d.externalId)).toEqual([
+      "10.1/p0", "10.1/p1", "10.1/p2",
+    ]);
+  });
+
+  it("respects the per-project searchMaxHits when it is tighter than the env cap", async () => {
+    envMock.MAX_DISCOVERED_PAPERS_PER_RUN = 50;
+    mocks.runLLM.mockResolvedValue({
+      output: { queries: ["q1"], rationale: "x." },
+      traceUrl: "",
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+    });
+    const sixHits = Array.from({ length: 6 }, (_, i) => ({
+      provider: "openalex" as const,
+      externalId: `10.1/q${i}`,
+      title: `paper ${i}`,
+      authors: [],
+      abstract: null,
+      publicationYear: 2024,
+      venue: null,
+      citationCount: null,
+      oaUrl: null,
+      accessStatus: "unknown" as const,
+      initialScore: 1 - i * 0.05,
+    }));
+    mocks.dispatchSearch.mockResolvedValue({ hits: sixHits, errors: [] });
+    mocks.findMany.mockResolvedValue([]);
+
+    await discovererNode({ ...baseState, searchMaxHits: 2 });
+
+    const createCall = mocks.createMany.mock.calls[0]![0];
+    expect(createCall.data).toHaveLength(2);
+  });
+
+  it("env cap wins when the per-project value exceeds it", async () => {
+    envMock.MAX_DISCOVERED_PAPERS_PER_RUN = 2;
+    mocks.runLLM.mockResolvedValue({
+      output: { queries: ["q1"], rationale: "x." },
+      traceUrl: "",
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+    });
+    const fourHits = Array.from({ length: 4 }, (_, i) => ({
+      provider: "openalex" as const,
+      externalId: `10.1/r${i}`,
+      title: `paper ${i}`, authors: [], abstract: null, publicationYear: 2024,
+      venue: null, citationCount: null, oaUrl: null,
+      accessStatus: "unknown" as const, initialScore: 1 - i * 0.1,
+    }));
+    mocks.dispatchSearch.mockResolvedValue({ hits: fourHits, errors: [] });
+    mocks.findMany.mockResolvedValue([]);
+
+    await discovererNode({ ...baseState, searchMaxHits: 100 });
+
+    const createCall = mocks.createMany.mock.calls[0]![0];
+    expect(createCall.data).toHaveLength(2);
   });
 });

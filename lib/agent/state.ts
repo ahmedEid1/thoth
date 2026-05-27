@@ -133,6 +133,14 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (_old, neu) => neu,
     default: () => [],
   }),
+  // Per-project cap on how many discovered hits make it past dedup into the
+  // fetcher loop. Bounded by env.MAX_DISCOVERED_PAPERS_PER_RUN at runtime
+  // (the smaller of the two wins), so a project author cannot exceed the
+  // operator's ceiling. Null = use the env default.
+  searchMaxHits: Annotation<number | null>({
+    reducer: (_old, neu) => neu,
+    default: () => null,
+  }),
   discoveryQueries: Annotation<string[]>({
     reducer: (_old, neu) => neu,
     default: () => [],

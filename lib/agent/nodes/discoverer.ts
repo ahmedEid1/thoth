@@ -98,9 +98,16 @@ export async function discovererNode(
         dedup.set(h.externalId, h);
       }
     }
-    const merged = Array.from(dedup.values()).sort(
-      (a, b) => b.initialScore - a.initialScore,
-    );
+    // Sort by relevance, then enforce the safety cap. searchMaxHits is the
+    // per-project knob (default 50); env.MAX_DISCOVERED_PAPERS_PER_RUN
+    // (default 50, ceiling 100) is the deploy-wide ceiling. The smaller of
+    // the two wins so a project author can't ask for more than the operator
+    // configured. Highest-scored hits survive the cut.
+    const projectCap = state.searchMaxHits ?? env.MAX_DISCOVERED_PAPERS_PER_RUN;
+    const hardCap = Math.min(projectCap, env.MAX_DISCOVERED_PAPERS_PER_RUN);
+    const merged = Array.from(dedup.values())
+      .sort((a, b) => b.initialScore - a.initialScore)
+      .slice(0, hardCap);
 
     // 4. Persist every survivor as a DiscoveredPaper row. createMany is
     //    fast; @@unique([runId, externalId]) skipDuplicates makes it

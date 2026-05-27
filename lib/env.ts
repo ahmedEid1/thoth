@@ -98,9 +98,18 @@ const envSchema = z.object({
 
   // Per-run token ceiling enforced by lib/agent/cost-cap.ts. Sums input+output
   // tokens across all RunSteps and trips BudgetExceededError before the next
-  // runLLM call when exceeded. 250k covers a generous review run; tunable
-  // per-env for tighter budgets in CI/eval or looser ones in production.
-  MAX_TOKENS_PER_RUN: z.coerce.number().int().positive().default(250_000),
+  // runLLM call when exceeded. 400k covers a generous V2 outbound review run
+  // (V1 used 250k; v2 added discoverer + per-paper screener + OCR overhead);
+  // tunable per-env for tighter budgets in CI/eval or looser ones in production.
+  MAX_TOKENS_PER_RUN: z.coerce.number().int().positive().default(400_000),
+
+  // V2 — caps the discoverer's deduped hit list AND the fetcher's per-run loop
+  // so a runaway query (or an unfiltered "machine learning" sweep across three
+  // providers) doesn't blow the OCR budget. Default 50, hard ceiling 100. Per-run
+  // override comes from Project.searchMaxHits (which Zod-validates against the
+  // same ceiling at project-create time). Mirrors MAX_TOKENS_PER_RUN's safety
+  // pattern: silent slice at the discoverer's persistence step, no error thrown.
+  MAX_DISCOVERED_PAPERS_PER_RUN: z.coerce.number().int().min(1).max(100).default(50),
 });
 
 export type Env = z.infer<typeof envSchema>;
