@@ -2,6 +2,9 @@ import { StateGraph, START, END, interrupt } from "@langchain/langgraph";
 import { AgentStateAnnotation, type AgentState } from "@/lib/agent/state";
 import { plannerNode } from "@/lib/agent/nodes/planner";
 import { retrieverNode } from "@/lib/agent/nodes/retriever";
+import { discovererNode } from "@/lib/agent/nodes/discoverer";
+import { fetcherNode } from "@/lib/agent/nodes/fetcher";
+import { screenerNode } from "@/lib/agent/nodes/screener";
 import { assessorNode } from "@/lib/agent/nodes/assessor";
 import { drafterNode } from "@/lib/agent/nodes/drafter";
 import { criticNode } from "@/lib/agent/nodes/critic";
@@ -20,6 +23,33 @@ function planApprovalGate(state: AgentState): Partial<AgentState> {
   return { planApproved: decision as AgentState["planApproved"] };
 }
 
+/**
+ * V2 — HITL approval gate after the discoverer. Shows generated search
+ * queries + the top hit list; user can drop / re-run / approve. Mirrors
+ * planApprovalGate; the trigger task is responsible for routing the
+ * decision payload back into state.discoveryApproved.
+ *
+ * Power-user opt-out: when `state.discoveryApproved` is already populated
+ * (because the project's `skipDiscoveryGate` is true and the discoverer
+ * node pre-stamped an auto-approval), this node is short-circuited by the
+ * `routeIntoDiscoveryGate` conditional below.
+ */
+function discoveryApprovalGate(state: AgentState): Partial<AgentState> {
+  const decision = interrupt({
+    kind: "APPROVE_DISCOVERY",
+    queries: state.discoveryQueries,
+    discoveredPapers: state.discoveredPapers.map((p) => ({
+      id: p.id,
+      externalId: p.externalId,
+      provider: p.provider,
+      title: p.title,
+      abstract: p.abstract,
+      accessStatus: p.accessStatus,
+    })),
+  });
+  return { discoveryApproved: decision as AgentState["discoveryApproved"] };
+}
+
 /** HITL approval gate for the retrieved/included papers. Mirrors {@link planApprovalGate}. */
 function papersApprovalGate(state: AgentState): Partial<AgentState> {
   const decision = interrupt({
@@ -29,8 +59,27 @@ function papersApprovalGate(state: AgentState): Partial<AgentState> {
   return { papersApproved: decision as AgentState["papersApproved"] };
 }
 
-function routeAfterPlanGate(state: AgentState): "retriever" | typeof END {
-  return state.planApproved?.approved ? "retriever" : END;
+/**
+ * V2 — route after plan_gate. uploaded_only projects take V1's retriever
+ * path; outbound / hybrid go through the discoverer → discovery_gate →
+ * fetcher → screener chain.
+ *
+ * Rejection routes to END regardless of mode.
+ */
+function routeAfterPlanGate(
+  state: AgentState,
+): "retriever" | "discoverer" | typeof END {
+  if (!state.planApproved?.approved) return END;
+  if (state.searchScope === "outbound" || state.searchScope === "hybrid") {
+    return "discoverer";
+  }
+  return "retriever";
+}
+
+function routeAfterDiscoveryGate(
+  state: AgentState,
+): "fetcher" | typeof END {
+  return state.discoveryApproved?.approved ? "fetcher" : END;
 }
 
 function routeAfterPapersGate(state: AgentState): "assessor" | typeof END {
@@ -44,18 +93,29 @@ export function routeAfterCritic(state: AgentState): "drafter" | "cite_check" {
 }
 
 /**
- * Build and compile the SLR agent graph:
+ * Build and compile the SLR agent graph.
  *
- *   START → planner → plan_gate ──(approved)→ retriever → papers_gate ──(approved)→ assessor → drafter
- *                       └─(rejected)→ END                    └─(rejected)→ END                    │
- *                                                                                                 ▼
- *                                                                              ┌──── (revise) ── critic
- *                                                                              ▼                  │
- *                                                                           drafter        (approve)
- *                                                                                                 ▼
- *                                                                                            cite_check → END
+ * V1 uploaded-only path:
  *
- * The two `*_gate` nodes use {@link interrupt} for human-in-the-loop approval.
+ *   START → planner → plan_gate ──(approved)→ retriever → papers_gate ──(approved)→ assessor
+ *
+ * V2 outbound / hybrid path (new in 2026-05):
+ *
+ *   ... plan_gate ──(approved + outbound)→ discoverer → discovery_gate
+ *                                            ──(approved)→ fetcher → screener → papers_gate
+ *
+ * Common tail (both modes):
+ *
+ *   papers_gate ──(approved)→ assessor → drafter
+ *                                            │
+ *                                            ▼
+ *                               ┌──── (revise) ── critic
+ *                               ▼                  │
+ *                            drafter        (approve)
+ *                                                  ▼
+ *                                             cite_check → END
+ *
+ * Every `*_gate` uses {@link interrupt} for human-in-the-loop approval.
  * Resuming with `Command({ resume: { approved, ... } })` writes the decision
  * into state, and a conditional edge routes accordingly.
  *
@@ -68,7 +128,14 @@ export async function buildGraph() {
   const graph = new StateGraph(AgentStateAnnotation)
     .addNode("planner", plannerNode)
     .addNode("plan_gate", planApprovalGate)
+    // V1 path
     .addNode("retriever", retrieverNode)
+    // V2 path
+    .addNode("discoverer", discovererNode)
+    .addNode("discovery_gate", discoveryApprovalGate)
+    .addNode("fetcher", fetcherNode)
+    .addNode("screener", screenerNode)
+    // Shared tail
     .addNode("papers_gate", papersApprovalGate)
     .addNode("assessor", assessorNode)
     .addNode("drafter", drafterNode)
@@ -76,9 +143,26 @@ export async function buildGraph() {
     .addNode("cite_check", citeCheckNode)
     .addEdge(START, "planner")
     .addEdge("planner", "plan_gate")
-    .addConditionalEdges("plan_gate", routeAfterPlanGate, { retriever: "retriever", [END]: END })
+    .addConditionalEdges("plan_gate", routeAfterPlanGate, {
+      retriever: "retriever",
+      discoverer: "discoverer",
+      [END]: END,
+    })
+    // V1 chain
     .addEdge("retriever", "papers_gate")
-    .addConditionalEdges("papers_gate", routeAfterPapersGate, { assessor: "assessor", [END]: END })
+    // V2 chain
+    .addEdge("discoverer", "discovery_gate")
+    .addConditionalEdges("discovery_gate", routeAfterDiscoveryGate, {
+      fetcher: "fetcher",
+      [END]: END,
+    })
+    .addEdge("fetcher", "screener")
+    .addEdge("screener", "papers_gate")
+    // Shared tail
+    .addConditionalEdges("papers_gate", routeAfterPapersGate, {
+      assessor: "assessor",
+      [END]: END,
+    })
     .addEdge("assessor", "drafter")
     .addEdge("drafter", "critic")
     .addConditionalEdges("critic", routeAfterCritic, {
