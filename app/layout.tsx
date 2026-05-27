@@ -24,10 +24,49 @@ const fraunces = Fraunces({
   axes: ["opsz", "SOFT"],
 });
 
+// Resolve relative URLs against the deployed origin (set by Vercel) or fall
+// back to the canonical prod hostname for local dev. Next.js' Metadata API
+// uses this to absolutize `openGraph.images` / `twitter.images` URLs.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  ? process.env.NEXT_PUBLIC_SITE_URL
+  : process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "https://thoth-slr.vercel.app";
+
+const TITLE = "Thoth — Agentic systematic literature reviews";
+const DESCRIPTION =
+  "Multi-step LangGraph agent that drafts evidence-grounded literature reviews and verifies every cited claim against the source paper before you read the draft.";
+
 export const metadata: Metadata = {
-  title: "Thoth — Agentic systematic literature reviews",
-  description:
-    "Multi-step LangGraph agent that drafts evidence-grounded literature reviews and verifies every cited claim against the source paper before you read the draft.",
+  metadataBase: new URL(siteUrl),
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: siteUrl,
+    siteName: "Thoth",
+    type: "website",
+    locale: "en_GB",
+    images: [
+      {
+        // SVG works on most modern crawlers; platforms that reject it fall
+        // back to the title+description card, which is still richer than the
+        // bare default we had before. A purpose-built PNG OG card would land
+        // in a follow-up via app/opengraph-image.tsx (Next.js Metadata Files).
+        url: "/thoth-logo.svg",
+        width: 512,
+        height: 512,
+        alt: "Thoth — sacred ibis logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/thoth-logo.svg"],
+  },
 };
 
 function IbisMark({ className = "" }: { className?: string }) {
