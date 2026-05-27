@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { externalPaperLink } from "@/lib/search/external-link";
 
 type DiscoveredPaper = {
   id: string;
@@ -9,12 +10,14 @@ type DiscoveredPaper = {
   publicationYear: number | null;
   initialScore: number;
   corpusItemId: string | null;
+  oaUrl?: string | null;
   screening: {
     include: boolean;
     relevanceScore: number;
     reason: string;
   } | null;
 };
+
 
 type ProviderError = {
   nodeName: string;
@@ -135,9 +138,29 @@ export function DiscoverySummary({ queries, discoveredPapers, providerErrors }: 
                     <span className="text-muted-foreground">excluded</span>
                   )}
                 </div>
-                <p className="mt-1 text-[var(--thoth-blue-ink)] leading-snug line-clamp-2">
-                  {p.title}
-                </p>
+                {(() => {
+                  const href = externalPaperLink(p);
+                  return href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 block text-[var(--thoth-blue-ink)] leading-snug line-clamp-2 hover:text-[var(--thoth-blue)] hover:underline"
+                    >
+                      {p.title}
+                    </a>
+                  ) : (
+                    <p className="mt-1 text-[var(--thoth-blue-ink)] leading-snug line-clamp-2">
+                      {p.title}
+                    </p>
+                  );
+                })()}
+                {p.authors.length > 0 && (
+                  <p className="mt-0.5 text-[10px] text-muted-foreground line-clamp-1">
+                    {p.authors.slice(0, 5).join(", ")}
+                    {p.authors.length > 5 && <span> + {p.authors.length - 5} more</span>}
+                  </p>
+                )}
                 {p.screening && (
                   <p className="mt-1 text-[10px] text-muted-foreground line-clamp-2 italic">
                     {p.screening.reason}
