@@ -223,4 +223,104 @@ test.describe("live authenticated walkthrough", () => {
     expect(del.status()).toBe(204);
     createdProjectIds.delete(projectId);
   });
+
+  // V2 hybrid scope + full search-tuning surface — exercises every
+  // optional knob (year range, max hits, skip-discovery-gate) the
+  // create dialog exposes and verifies they round-trip through the API
+  // back into the project page's Discovery configuration panel.
+  test("create a hybrid project with all tuning options, verify persistence, then delete", async ({ page, context }) => {
+    await page.setViewportSize({ width: 1280, height: 1400 });
+    await page.goto("/");
+    await clerk.signIn({ page, emailAddress: EMAIL });
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: /new project/i }).click();
+    const title = `E2E live walkthrough hybrid — ${new Date().toISOString()}`;
+    await page.getByLabel(/title/i).fill(title);
+    await page
+      .getByLabel(/research question/i)
+      .fill("Does hybrid mode actually merge uploaded + outbound corpora?");
+
+    await page.getByRole("radio", { name: /hybrid/i }).check();
+
+    // Fill the search-tuning fieldset (visible only when scope != uploaded_only).
+    await page.getByLabel(/from year/i).fill("2020");
+    await page.getByLabel(/to year/i).fill("2025");
+    await page.getByLabel(/max hits per run/i).fill("30");
+    // The "Skip discovery approval" checkbox is labeled by its <label> wrapper.
+    await page.getByRole("checkbox", { name: /skip discovery approval/i }).check();
+
+    await page.getByRole("button", { name: /^create$/i }).click();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 15_000 });
+
+    // Verify the project-page Discovery configuration panel renders the
+    // configured values. Scope label is "Hybrid (uploaded + outbound)".
+    await expect(page.getByRole("heading", { name: /discovery configuration/i })).toBeVisible();
+    await expect(page.getByText(/hybrid \(uploaded \+ outbound\)/i)).toBeVisible();
+    // Max hits value rendered in the dl.
+    await expect(page.getByText(/^30$/)).toBeVisible();
+    // Year range row.
+    await expect(page.getByText(/2020.*2025/)).toBeVisible();
+    // skipDiscoveryGate row.
+    await expect(page.getByText(/discovery approval skipped/i)).toBeVisible();
+
+    const url = page.url();
+    const projectId = url.match(/\/projects\/([^/]+)/)![1]!;
+    createdProjectIds.add(projectId);
+
+    // Round-trip check: hit GET /api/projects/[id] to confirm the
+    // values landed in the DB (defends against a UI-only render that
+    // doesn't actually persist).
+    const apiCtx = context.request;
+    const get = await apiCtx.get(`/api/projects/${projectId}`);
+    expect(get.status()).toBe(200);
+    const project = (await get.json()) as {
+      searchScope: string;
+      searchProviders: string[];
+      searchYearStart: number | null;
+      searchYearEnd: number | null;
+      searchMaxHits: number;
+      skipDiscoveryGate: boolean;
+    };
+    expect(project.searchScope).toBe("hybrid");
+    expect(project.searchYearStart).toBe(2020);
+    expect(project.searchYearEnd).toBe(2025);
+    expect(project.searchMaxHits).toBe(30);
+    expect(project.skipDiscoveryGate).toBe(true);
+    // Hybrid auto-defaults providers to openalex + arxiv when not specified.
+    expect(project.searchProviders.sort()).toEqual(["arxiv", "openalex"]);
+
+    // Clean up.
+    const del = await apiCtx.delete(`/api/projects/${projectId}`);
+    expect(del.status()).toBe(204);
+    createdProjectIds.delete(projectId);
+  });
+
+  // Real-user sign-out exercises the Clerk session-revoke + redirect
+  // back to home. Verifies the auth UI flips back to the unauthenticated
+  // state (Sign in button visible, no "New project" button).
+  test("sign out clears the session + reveals the unauthenticated home", async ({ page }) => {
+    await page.goto("/");
+    await clerk.signIn({ page, emailAddress: EMAIL });
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    // Sanity: signed-in state renders the New Project button.
+    await expect(page.getByRole("button", { name: /new project/i })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Sign out via Clerk's testing helper (mirrors what the user-button
+    // dropdown does internally). Hits clerk.signOut().
+    await clerk.signOut({ page });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    // Public home: "Sign in" link visible, no signed-in CTAs.
+    await expect(page.getByRole("link", { name: /sign in/i }).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByRole("button", { name: /new project/i })).toHaveCount(0);
+  });
 });

@@ -125,6 +125,41 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M26 — Hybrid + tuning + sign-out coverage in the authenticated e2e
+
+**Goal:** Per user direction ("test everything the user can do…
+loop until everything in the app is perfect"), keep extending the
+authenticated walkthrough to cover the rest of the user's
+non-LLM-billing surface.
+
+**What shipped:**
+
+- New test: hybrid scope + every search-tuning knob. Drives:
+  searchScope=hybrid, searchYearStart=2020, searchYearEnd=2025,
+  searchMaxHits=30, skipDiscoveryGate=true. Verifies the project
+  page Discovery configuration panel renders all five values, then
+  ROUND-TRIPS through `GET /api/projects/<id>` to confirm the
+  values landed in the DB (defends against a UI-render-only
+  regression that doesn't persist). Hybrid auto-default providers
+  (openalex + arxiv) are asserted in the response.
+- New test: sign out via `clerk.signOut`. Asserts the New Project
+  button disappears + the public "Sign in" link reappears on
+  /. Covers the session-revoke + auth UI flip.
+- `pnpm test:e2e:live` total surface: **12/12 passing** in 42.5s
+  (3 MCP-transport + 5 public-surface + 4 authenticated).
+
+**Cost per CI run:** 5 DB INSERTs + 5 DELETEs across all four
+authenticated tests. No LLM, no OCR, no Trigger.dev work.
+
+**Still NOT covered (intentionally — billing concerns):**
+- PDF upload + Mistral OCR (would bill ~$0.001-0.01 per CI run +
+  leak the R2 blob on cleanup).
+- "Start review" + the agent pipeline (would bill 150-400k LLM
+  tokens per run). RELEASING.md's MCP Inspector + Claude Desktop
+  manual walkthrough covers this.
+
+**Key files:** `tests/e2e/live-auth-walkthrough.spec.ts`
+
 ## V2-M25 — v2-mode authenticated e2e (create outbound + verify config panel)
 
 **Goal:** Extend M24's authenticated walkthrough with a v2-shape test:
