@@ -47,6 +47,12 @@ describe("runHeadless", () => {
       draft: "Final draft.",
       critique: null,
       critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
     });
 
     const { runHeadless } = await import("@/lib/eval/headless-runner");
@@ -68,6 +74,12 @@ describe("runHeadless", () => {
         candidateCorpusItems: [], plan: null, planApproved: null,
         includedPapers: [], papersApproved: null, claims: [],
         draft: null, critique: null, critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
         __interrupt__: [{ value: { kind: "APPROVE_PLAN" } }],
       })
       .mockResolvedValueOnce({
@@ -76,6 +88,12 @@ describe("runHeadless", () => {
         planApproved: { approved: true },
         includedPapers: [], papersApproved: null, claims: [],
         draft: null, critique: null, critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
         __interrupt__: [{ value: { kind: "APPROVE_PAPERS" } }],
       })
       .mockResolvedValueOnce({
@@ -84,6 +102,12 @@ describe("runHeadless", () => {
         planApproved: { approved: true },
         includedPapers: [], papersApproved: { approved: true },
         claims: [], draft: "Done.", critique: null, critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
       });
 
     const { runHeadless } = await import("@/lib/eval/headless-runner");
@@ -99,6 +123,12 @@ describe("runHeadless", () => {
       candidateCorpusItems: [], plan: null, planApproved: null,
       includedPapers: [], papersApproved: null, claims: [],
       draft: null, critique: null, critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
       __interrupt__: [{ value: { kind: "APPROVE_PLAN" } }],
     });
 

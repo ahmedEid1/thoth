@@ -62,6 +62,12 @@ const baseState = {
   draft: null,
   critique: null,
   critiqueIterations: 0,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
 };
 
 describe("drafterNode", () => {
@@ -120,6 +126,12 @@ describe("drafterNode", () => {
         decision: "revise",
       },
       critiqueIterations: 1,
+      searchScope: "uploaded_only" as const,
+      searchProviders: [],
+      discoveryQueries: [],
+      discoveredPapers: [],
+      discoveryApproved: null,
+      screeningDecisions: [],
     });
 
     // The runLLM call's `messages[0].content` should contain the feedback text.
