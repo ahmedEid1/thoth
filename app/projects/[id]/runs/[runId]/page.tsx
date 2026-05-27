@@ -138,6 +138,7 @@ export default async function RunPage({
             publicationYear: p.publicationYear,
             initialScore: p.initialScore,
             corpusItemId: p.corpusItemId,
+            oaUrl: p.oaUrl,
             screening: p.screening
               ? {
                   include: p.screening.include,

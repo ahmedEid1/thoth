@@ -125,6 +125,33 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M20 — Discovered-paper click-through links + author display
+
+**Goal:** When users see a discovered paper in the DiscoverySummary
+panel, the title was inert text. They had to copy the externalId
+and paste it into a new tab to actually read the paper. Polish gap.
+
+**What shipped:**
+
+- New `lib/search/external-link.ts` with `externalPaperLink({ provider,
+  externalId, oaUrl })` mapping each provider's externalId shape to a
+  human-readable URL:
+    - `arxiv:2310.06770`   → `https://arxiv.org/abs/2310.06770`
+    - `10.1038/s41586-...` → `https://doi.org/10.1038/s41586-...`
+    - `openalex:W12345`    → `https://openalex.org/W12345`
+    - exa hits fall back to `oaUrl` when present
+    - `uploaded:ci_a` returns null (no external link — it's a user upload)
+- `DiscoverySummary` (run-detail panel) renders the paper title as an
+  `<a href target="_blank" rel="noopener noreferrer">` when
+  `externalPaperLink` returns a URL, falling back to a plain `<p>`
+  otherwise. The author list (first 5, "+ N more" tail) also shows
+  now — previously the field was loaded but never rendered.
+- 7 new tests for `externalPaperLink` covering each provider shape +
+  the uploaded null case + the unknown-shape fallback + the
+  "don't mistake bare arxiv id for a DOI" edge case.
+
+**Key files:** `lib/search/external-link.ts`, `components/runs/discovery-summary.tsx`, `app/projects/[id]/runs/[runId]/page.tsx`, `tests/lib/search/external-link.test.ts`
+
 ## V2-M19 — SEARCH_DISABLED fail-fast at runs-start
 
 **Goal:** When the operator flips `SEARCH_DISABLED=1` (the v2 kill
