@@ -125,6 +125,42 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M31 — COMPLETED happy-path + reject-papers e2e
+
+**Goal:** Cover the single biggest user story still untested
+against the live deploy: "agent drafts a review + verifies every
+cited claim against the source paper." M29's full-pipeline test
+stopped at papers_gate to fit inside Mistral free-tier RPM; this
+milestone takes it the rest of the way.
+
+**What shipped:**
+
+- New live e2e test: `COMPLETED happy path: V2 outbound all the way
+  to draft + cite_check audit`. Drives a V2 outbound run through
+  every node — planner → discoverer → fetcher → screener → papers_gate
+  → assessor → drafter → critic → cite_check → COMPLETED — then
+  reloads the page and asserts:
+    - `<article>` / `<main>` heading is visible (react-markdown
+      rendered the draft body).
+    - cite_check audit copy is visible (supported / unsupported /
+      faithfulness / cite_check keywords match the
+      CitationFaithfulnessWidget).
+  Verified live: **8.1 min** end-to-end against
+  `thoth-slr.vercel.app` on Mistral free tier.
+- New live e2e test: `V2 outbound: reject papers_gate → REJECTED
+  with 'User aborted at papers gate' reason`. Exercises the M12
+  papersApproved.rejectionReason path with the
+  PapersApprovalCard's hardcoded "User aborted at papers gate"
+  string. Verified live: 1.9 min.
+- README + home page test-count strings sync to "466 unit + 19
+  live (16 fast + 3 full pipeline)" — was bumped again here to
+  cover M31's additions (now 23 total).
+- README's Roadmap & changelog gains a v2.0.0 entry summarising
+  the 31-milestone build + the 10-bug audit pass + the live e2e
+  surface.
+
+**Key files:** `tests/e2e/live-full-pipeline.spec.ts`, `README.md`, `app/page.tsx`
+
 ## V2-M30 — Rejection-path e2e + Trigger.dev worker redeploy
 
 **Goal:** Per user direction ("all user stories and cases and
