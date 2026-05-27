@@ -112,4 +112,36 @@ describe("POST /api/webhooks/clerk", () => {
 
     expect(res.status).toBe(400);
   });
+
+  it("deletes the local User row on user.deleted (Prisma cascades the rest)", async () => {
+    vi.mocked(verifyWebhook).mockResolvedValue({
+      type: "user.deleted",
+      data: { id: "user_gone" },
+    } as unknown as Awaited<ReturnType<typeof verifyWebhook>>);
+
+    const { POST } = await import("@/app/api/webhooks/clerk/route");
+    const res = await POST(buildReq());
+
+    expect(res.status).toBe(200);
+    expect(db.user.delete).toHaveBeenCalledWith({ where: { clerkId: "user_gone" } });
+    expect(db.user.upsert).not.toHaveBeenCalled();
+  });
+
+  it("swallows a delete failure on user.deleted (idempotent for stale Clerk webhooks)", async () => {
+    // The route does `.catch(() => null)` on the delete — if the local row
+    // doesn't exist (e.g., the user signed up then deleted before the
+    // user.created webhook ever fired, leaving Clerk and Thoth out of sync),
+    // we still acknowledge the webhook so Clerk doesn't keep retrying.
+    vi.mocked(verifyWebhook).mockResolvedValue({
+      type: "user.deleted",
+      data: { id: "user_missing" },
+    } as unknown as Awaited<ReturnType<typeof verifyWebhook>>);
+    vi.mocked(db.user.delete).mockRejectedValueOnce(new Error("Record to delete does not exist"));
+
+    const { POST } = await import("@/app/api/webhooks/clerk/route");
+    const res = await POST(buildReq());
+
+    expect(res.status).toBe(200);
+    expect(db.user.delete).toHaveBeenCalledWith({ where: { clerkId: "user_missing" } });
+  });
 });
