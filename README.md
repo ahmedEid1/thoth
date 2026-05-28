@@ -1,188 +1,143 @@
 <div align="center">
 
-<img src="docs/assets/thoth-logo.svg" alt="Thoth — sacred ibis logo" width="140" height="140" />
+<img src="docs/assets/thoth-logo.svg" alt="Thoth — sacred ibis logo" width="120" height="120" />
 
 # Thoth
 
-**Agentic systematic literature reviews with verifiable citations.**
+**Agentic systematic literature reviews — with every citation checked against the source.**
 
-*Named for Thoth, ancient Egypt's ibis-headed god of writing and scribes — the divine patron of the work this tool automates.*
+*Named for Thoth, ancient Egypt's ibis-headed god of writing and scribes.*
 
-[![Live app](https://img.shields.io/badge/live-thoth--slr.vercel.app-1E3A8A?style=flat-square)](https://thoth-slr.vercel.app)
+[![Live demo](https://img.shields.io/badge/▶_live_demo-thoth--slr.vercel.app-1E3A8A?style=flat-square)](https://thoth-slr.vercel.app)
 [![Public evals](https://img.shields.io/badge/evals-public-C9A961?style=flat-square)](https://thoth-slr.vercel.app/evals)
 [![MCP Registry](https://img.shields.io/badge/MCP-registered-orange?style=flat-square)](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-676%20passing-success?style=flat-square)](#)
-[![Status](https://img.shields.io/badge/status-v1.0.1-informational?style=flat-square)](#)
-[![Deploy cost](https://img.shields.io/badge/deploy-%240%2Fmo-brightgreen?style=flat-square)](#)
+[![Tests](https://img.shields.io/badge/tests-676%20passing-success?style=flat-square)](docs/architecture.md#tests--verification)
+[![Version](https://img.shields.io/badge/version-2.0.0-informational?style=flat-square)](CHANGELOG.md)
+[![Deploy cost](https://img.shields.io/badge/deploy-%240%2Fmo-brightgreen?style=flat-square)](docs/self-host/oracle-cloud-quickstart.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-black?style=flat-square)](LICENSE)
 
-`agentic-ai` · `langgraph` · `systematic-literature-review` · `mcp-server` · `oauth-2.1` · `next.js` · `prisma` · `trigger.dev` · `clerk` · `cite-check`
+**[Try the live demo](https://thoth-slr.vercel.app)** · **[See a sample review](https://thoth-slr.vercel.app/showcase)** · **[Public eval dashboard](https://thoth-slr.vercel.app/evals)** · **[Connect via MCP](#-connect-it-to-your-ai-assistant)**
+
+<img src="docs/assets/media/showcase-walkthrough.gif" alt="Browsing a completed Thoth review — draft, critic score, and per-claim citation audit" width="760" />
 
 </div>
 
-**Live app:** https://thoth-slr.vercel.app · **Public evals:** https://thoth-slr.vercel.app/evals · **MCP endpoint:** `https://thoth-slr.vercel.app/api/mcp/mcp`
+---
 
-Thoth turns a research question into an evidence-grounded literature review. Two modes:
+## What is Thoth?
 
-- **Uploaded-only (v1).** You upload PDFs; a LangGraph agent (planner → retriever → assessor → drafter → critic → cite_check) reads them, drafts the review, and verifies every cited claim against its source.
-- **Outbound search (v2, new).** Point Thoth at a question. The agent discovers candidate papers across OpenAlex / arXiv / Exa, downloads the open-access PDFs, screens each against the plan's inclusion criteria, then runs the V1 pipeline on the survivors. The `cite_check` post-pass flags hallucinated citations either way.
+Systematic literature reviews are slow to write — and when you ask an LLM to write
+one, it confidently invents citations and statistics that aren't in any paper.
 
-![Thoth MCP demo — Claude.ai catching 6 fabricated citations via cite_check](docs/assets/m5-mcp-demo.gif)
+**Thoth does both halves and checks its own work.** Give it a research question and
+it discovers relevant papers, reads them, drafts an evidence-grounded review — then
+runs a verification pass (`cite_check`) that compares **every cited claim against the
+source paper** and flags anything unsupported *before you read the draft*. The result
+is a review with a critic score, a citation-faithfulness percentage, and a per-claim
+audit you can trust.
 
-*Claude.ai connected to Thoth via the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth). After `list_reviews` surfaces a review with faithfulness 0.13, Claude calls `get_citation_audit` and identifies all 6 unsupported claims — every one citing the same paper, with invented percentages that aren't in the source. Try it: [Connect via MCP](#connect-via-mcp).*
+It runs as a polished web app, a public eval dashboard, and an authenticated MCP
+server your AI assistant can call directly.
 
-## Verified engineering proofs
+## See it work
+
+**Claude.ai catches 6 fabricated citations in a real draft — using Thoth's audit:**
+
+<div align="center">
+<img src="docs/assets/m5-mcp-demo.gif" alt="Claude.ai connected to Thoth via MCP, using get_citation_audit to identify 6 unsupported claims" width="760" />
+</div>
+
+> Connected to Thoth via the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth), Claude calls `get_citation_audit`, finds a review with faithfulness 0.13, and identifies all 6 unsupported claims — every one citing the same paper, with invented percentages that aren't in the source.
+
+**Every claim, scored against its source** — the `/showcase` review (no login needed):
+
+<div align="center">
+<img src="docs/assets/media/02-showcase.png" alt="A completed Thoth review: critic 4.2/5, citation faithfulness 75%, 8/8 citations checked with 2 unsupported" width="760" />
+</div>
+
+## Key features
+
+- **🔎 `cite_check` — verifiable citations.** Every `[paper_id]` in the draft is
+  checked against the cited paper and labelled supported / unsupported / unclear.
+  This is the core differentiator: the LLM can't quietly hallucinate a citation.
+- **🌐 Outbound web search (v2).** Point Thoth at a question and its
+  `discoverer → fetcher → screener` agents find papers across **OpenAlex**, **arXiv**,
+  and **Exa**, fetch the open-access PDFs, OCR them, and screen each against your plan
+  — no manual uploads required. (Or stay in uploaded-only, or hybrid.)
+- **🔌 Authenticated, registered MCP server.** OAuth 2.1 + PKCE + Dynamic Client
+  Registration via Clerk, SHA-256 audit logging, rate limits — listed in the
+  [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth).
+  Most public MCP servers ship with no auth; this one doesn't.
+- **📊 Public eval dashboard.** Recall / precision / faithfulness / coverage over a
+  versioned golden set, refreshed weekly by CI and rendered at
+  [`/evals`](https://thoth-slr.vercel.app/evals) — an eval regression is a *public*
+  signal, not a hidden one.
+- **💸 6 LLM providers, $0 by default.** Swap providers with one env var; the Mistral
+  free tier runs the whole thing, and the entire stack deploys on free tiers for
+  **$0/month**.
+
+## 🚀 Quickstart
+
+**Try it now (nothing to install):**
+- **[Open the live demo →](https://thoth-slr.vercel.app)** and build a review, or
+  **[browse a finished one →](https://thoth-slr.vercel.app/showcase)**.
+
+**Connect it to your AI assistant** — paste this into claude.ai (Pro/Max), Claude
+Desktop, Cursor, or any MCP client (OAuth runs in your browser; no token to copy):
+
+```
+https://thoth-slr.vercel.app/api/mcp/mcp
+```
+
+<details>
+<summary>Read-only MCP tools (scoped to your account)</summary>
+
+- `list_reviews` — your reviews with critic + faithfulness scores
+- `get_review_draft` — the markdown draft of a completed review
+- `get_citation_audit` — the per-claim cite_check verdict report
+- `list_discovered_papers` *(v2)* — papers the discoverer surfaced, with fetch + screening status
+- `get_search_queries` *(v2)* — the queries the discoverer generated + per-provider errors
+
+Full reference: [`docs/mcp/tools.md`](docs/mcp/tools.md) · auth + audit model: [`docs/mcp/security.md`](docs/mcp/security.md)
+</details>
+
+**Run it locally:**
+
+```bash
+git clone https://github.com/ahmedEid1/thoth.git && cd thoth
+cp .env.example .env        # Clerk + Trigger.dev keys + MISTRAL_API_KEY
+docker compose up -d        # postgres, minio, langfuse
+pnpm install && pnpm prisma migrate dev
+pnpm dev                    # Next.js on :3000
+pnpm dev:trigger            # Trigger.dev worker (separate terminal)
+```
+
+Full setup, the agent pipeline, and the v2 flow: **[docs/architecture.md](docs/architecture.md)**.
+
+## Proof
 
 | | |
 |---|---|
-| **Live app** | [thoth-slr.vercel.app](https://thoth-slr.vercel.app) (Clerk sign-in) |
-| **Public eval dashboard** | [`/evals`](https://thoth-slr.vercel.app/evals) — recall/precision/faithfulness/coverage over a 17-question versioned golden set (14 real-paper SLR questions across LLM/ML/SE + 3 synthetic seeds), refreshed weekly via CI |
-| **Official MCP Registry entry** | [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth) — `status: active` |
-| **Tests** | 676 unit/integration + 22 live e2e (3 MCP-transport + 7 real-browser public-surface + 6 authenticated walkthroughs incl. PDF upload + 6 full-pipeline agent runs through Mistral free-tier including COMPLETED draft + cite_check), all green; tsc + lint clean |
-| **Audit log** | Every MCP tool call recorded in `McpCall` with SHA-256 input hash; no raw input ever stored |
-| **Deploy cost** | $0 / month (Vercel + Neon + Cloudflare R2 + Langfuse Cloud + Trigger.dev Cloud — all free tiers) |
-| **Self-host fallback** | One-VM deploy on Oracle Cloud Always Free (4 ARM cores, 24 GB RAM) — [`docs/self-host/`](docs/self-host/oracle-cloud-quickstart.md) |
-| **Status** | `v2.0` outbound search shipped on top of `v1.0.1`; eval CI runs weekly with an advisory regression check (high-water-mark per (goldenId, metric); see [`scripts/check-eval-regression.ts`](scripts/check-eval-regression.ts) for the rationale) |
+| **Live app** | [thoth-slr.vercel.app](https://thoth-slr.vercel.app) (Clerk sign-in) · sample review at [`/showcase`](https://thoth-slr.vercel.app/showcase) |
+| **Public evals** | [`/evals`](https://thoth-slr.vercel.app/evals) — recall/precision/faithfulness/coverage over an 18-question golden set, refreshed weekly by CI |
+| **MCP Registry** | [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth) — `status: active` |
+| **Tests** | 676 unit/integration + 22 live e2e against the deployed instance (MCP transport, real-browser, authenticated walkthroughs, full agent runs) — all green; tsc + lint clean |
+| **Audit log** | Every MCP call recorded with a SHA-256 input hash; no raw input stored |
+| **Deploy cost** | $0/month — Vercel + Neon + Cloudflare R2 + Langfuse + Trigger.dev, all free tiers ([self-host option](docs/self-host/oracle-cloud-quickstart.md)) |
 
-## What makes Thoth different
+## For engineers
 
-0. **Outbound web search (v2).** Switch a project to `outbound` or `hybrid` and Thoth's `discoverer → fetcher → screener` nodes find papers themselves across OpenAlex, arXiv, and Exa, acquire the open-access PDFs, OCR them, and apply your plan's inclusion criteria before the V1 pipeline ever sees them. Spec: [`docs/superpowers/specs/thoth-v2-design.md`](docs/superpowers/specs/thoth-v2-design.md).
-1. **`cite_check` post-pass.** Every `[paper_id]` citation in the generated draft is verified against the cited paper before the user reads the draft. The MCP demo above shows Claude.ai using this audit to identify 6 hallucinated statistics in a real SLR draft on the ReAct paper.
-2. **Authenticated, registered MCP server.** Most public MCP servers ship with no auth. Thoth uses OAuth 2.1 + PKCE + Dynamic Client Registration via Clerk (resource-server pattern, RFC 8707), with SHA-256 audit logs and DB-backed sliding-window rate limits. Listed in the official MCP Registry; works in claude.ai, Claude Desktop (via `mcp-remote`), Cursor, and MCP Inspector.
-3. **Public eval dashboard tied to main.** Every commit can run the agent against a versioned golden set; results render at `/evals`. Designed so an eval regression is a public signal, not a hidden one.
-4. **6 LLM providers, `$0` default.** Switch providers via one env var (`LLM_PROVIDER=mistral|groq|gemini|anthropic|openai|claude-agent`); Mistral free tier is the default. Local eval runs can use a Claude Max subscription via `@anthropic-ai/claude-agent-sdk` without an API key.
+Thoth is a **LangGraph** `StateGraph` driven by a **Trigger.dev** worker, with durable
+human-in-the-loop gates, a per-run cost cap, and exactly-once gate delivery. Next.js 16
++ TypeScript (strict), Postgres + Prisma, Clerk auth (web + OAuth 2.1 for MCP),
+S3-compatible storage, Mistral OCR, Langfuse tracing.
 
-## Connect via MCP
-
-Thoth ships an authenticated MCP server at `https://thoth-slr.vercel.app/api/mcp/mcp` — paste this URL into claude.ai (Pro/Max), Claude Desktop, Cursor, or any MCP-compatible client. OAuth flow runs in your browser (powered by Clerk + Dynamic Client Registration); you never copy-paste a token.
-
-**Listed in the official [MCP Registry](https://registry.modelcontextprotocol.io)** as `io.github.ahmedEid1/thoth`. Verify independently with:
-
-```bash
-curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth" | jq '.servers[0].server'
-```
-
-**Available tools** (all read-only, all scoped to your Thoth account):
-- `list_reviews` — list your Thoth reviews with critic + faithfulness scores
-- `get_review_draft` — fetch the markdown draft of a completed review
-- `get_citation_audit` — fetch the per-claim cite_check verdict report
-- `list_discovered_papers` *(v2)* — every paper the discoverer surfaced for an outbound review, with fetch + screening status
-- `get_search_queries` *(v2)* — the natural-language search queries the discoverer LLM generated, plus per-provider error log
-
-See [`docs/mcp/tools.md`](docs/mcp/tools.md) for the full tool reference and [`docs/mcp/security.md`](docs/mcp/security.md) for the auth + audit model.
-
-**Setting it up** in claude.ai (Pro/Max — Connectors → Add custom connector → paste the URL → OAuth via Clerk + DCR, no manual client config needed):
-
-![Adding Thoth as a custom MCP connector in claude.ai](docs/assets/m5-mcp-setup.gif)
-
-## Stack
-
-| Layer | Choice |
-|---|---|
-| App | Next.js 16 + TypeScript (strict) |
-| UI | Tailwind v4 + shadcn/ui (`@base-ui/react`) + Lucide |
-| Auth | Clerk (web sessions + OAuth 2.1 + DCR for MCP) |
-| DB | Postgres 17 + Prisma v7 (driver adapter `@prisma/adapter-neon`) |
-| Object store | S3-compatible (Cloudflare R2 in prod, MinIO local) |
-| Background jobs | Trigger.dev v4 |
-| Agent framework | LangGraph (TypeScript) |
-| LLM dispatch | Vercel AI SDK over 6 providers (see [LLM provider](#llm-provider)) |
-| PDF parsing | Mistral OCR API |
-| Observability | Langfuse Cloud (OpenTelemetry exporter via `langfuse-vercel` + `@vercel/otel`) |
-| MCP server | `mcp-handler` + `@clerk/mcp-tools` + `@modelcontextprotocol/sdk` |
-| Tests | Vitest (unit/integration) + Playwright (e2e smoke against live deploy) |
-| Deploy | Vercel + Neon (Frankfurt) + Cloudflare R2 + Langfuse Cloud + Trigger.dev Cloud |
-| Self-host | docker-compose on Oracle Cloud Always Free — [`infra/self-host/`](infra/self-host/) |
-
-## Quickstart
-
-```bash
-git clone https://github.com/ahmedEid1/thoth.git
-cd thoth
-cp .env.example .env       # fill in Clerk + Trigger.dev keys + MISTRAL_API_KEY
-docker compose up -d       # postgres :6053, minio :9010/:9011, langfuse :3030
-pnpm install
-pnpm prisma migrate dev
-pnpm dev                   # Next.js on :3000
-pnpm dev:trigger           # Trigger.dev worker (separate terminal)
-```
-
-See [`.env.example`](.env.example) for the full env-var list. Non-obvious ones: `S3_FORCE_PATH_STYLE=true` for MinIO; `CLERK_WEBHOOK_SIGNING_SECRET` only when wiring Clerk's webhook in prod.
-
-### Trying the v2 outbound flow
-
-1. Sign in → **New project**.
-2. Pick **Outbound search**. Default providers: OpenAlex + arXiv (both free, no API key needed). Tick Exa too if you've set `EXA_API_KEY` on the deploy.
-3. Optionally set year range + max hits per run (default 50, ceiling 100).
-4. Write a research question and click **Create**.
-5. On the project page, click **Start review**. No uploads needed — the discoverer builds the corpus.
-6. Approve the plan, then review the **Discovery approval card**: query list + per-row checkboxes against the discovered papers. Uncheck anything off-topic, then **Approve**.
-7. The fetcher OCRs the kept open-access PDFs, the screener votes include/exclude per paper, the **Papers approval card** appears with the screener's include set. Uncheck any false positives, approve, and the assessor → drafter → critic → cite_check pipeline runs as in v1.
-8. The final draft renders inline as Markdown with a **References** section resolving its inline `[paper_id]` citations to titles + authors + DOIs. Three downloads in the corner: **`.md`** (the draft + a provenance header + the References appendix), **`.bib`** (BibTeX with `author`/`year`/`journal`/`doi`, keyed by the same `[paper_id]` the draft cites so it drops straight into LaTeX), and **`.json`** (the structured cite_check audit). The CitationFaithfulnessWidget shows per-claim supported/unsupported verdicts with the cited paper's title; the same audit is queryable via the `get_citation_audit` MCP tool.
-
-Power users can tick **Skip discovery approval** at project-create time to bypass the discovery HITL gate (cost-cap + max-hits ceiling still apply). MCP clients can use `list_discovered_papers` + `get_search_queries` to inspect any run after the fact.
-
-## Tests
-
-```bash
-pnpm verify                                                              # typecheck + lint + test — the pre-tag check (RELEASING.md)
-pnpm test                                                                # 676 unit/integration tests on their own
-pnpm test:e2e:live       # 16 e2e against https://thoth-slr.vercel.app: 3 MCP-transport + 7 real-browser + 6 authenticated walkthroughs incl. PDF upload
-pnpm test:e2e:live:full  # 6 full agent-run pipeline tests (slow — exercises Mistral free-tier end-to-end including draft + cite_check + hybrid mode)
-#                          ^ authenticated specs need E2E_EMAIL + CLERK_SECRET_KEY in .env / .env.test;
-#                            they auto-skip cleanly when absent.
-pnpm tsx scripts/verify-mcp-audit.ts                                     # spot-check the McpCall audit log
-```
-
-## LLM provider
-
-Thoth uses [Vercel AI SDK](https://ai-sdk.dev) so you can swap providers via a single env var.
-
-| Provider  | Free? | Setup                                         | Env var                          |
-|-----------|-------|-----------------------------------------------|----------------------------------|
-| **Mistral** (default) | ✅ Free Experiment tier | https://console.mistral.ai (30s) | `MISTRAL_API_KEY` |
-| Groq      | ✅ Free | https://console.groq.com                       | `GROQ_API_KEY`                   |
-| Gemini    | ✅ Free | https://aistudio.google.com                    | `GOOGLE_GENERATIVE_AI_API_KEY`   |
-| Anthropic | Paid  | https://console.anthropic.com                  | `ANTHROPIC_API_KEY`              |
-| OpenAI    | Paid  | https://platform.openai.com                    | `OPENAI_API_KEY`                 |
-| Claude Agent SDK | ✅ Free with Max | `claude login` (Claude Code CLI)      | (CLI session — no key)           |
-
-Mistral is the default because the Free Experiment tier covers Thoth's workload, the data stays in the EU jurisdiction, and `mistral-large-latest` produces reliable Zod-validated structured output across every node in the agent pipeline.
-
-Switch with `LLM_PROVIDER=<name>` in `.env`. Tier choice (`smart`/`fast`) per prompt stays the same — the dispatcher maps each tier to the equivalent model per provider (see `lib/llm/tiers.ts`).
-
-## Self-host alternative
-
-Don't want to depend on Vercel + Neon + R2 + Langfuse Cloud? See [`docs/self-host/oracle-cloud-quickstart.md`](docs/self-host/oracle-cloud-quickstart.md) for a step-by-step walkthrough to deploy Thoth on **Oracle Cloud's Always Free** tier (4-core ARM Ampere A1 + 24 GB RAM, free forever). One VM runs Thoth + Postgres + MinIO + Langfuse behind Caddy with auto-TLS; you still use a hosted LLM API (Mistral free tier, or any of the 6 supported providers). Total recurring cost: **$0/month + ~€10/yr domain**. Config under [`infra/self-host/`](infra/self-host/).
-
-## Built with spec-driven development
-
-The full design is at [`docs/superpowers/specs/thoth-design.md`](docs/superpowers/specs/thoth-design.md); the build order (M1 → v1.0.1 + post-release polish) is at [`docs/superpowers/plans/thoth-roadmap.md`](docs/superpowers/plans/thoth-roadmap.md). The release checklist is at [`RELEASING.md`](RELEASING.md). Brand guidelines: [`docs/brand.md`](docs/brand.md).
-
-## Roadmap & changelog
-
-- ~~**M1** — Workspace foundation~~ ✅ `v0.1.0-m1` — Clerk auth, Prisma v7, S3 object store, PDF upload + Trigger.dev parse task
-- ~~**M2** — Summarisation + Langfuse observability~~ ✅ `v0.2.0-m2` — `lib/llm.ts` wrapper, `summarize-paper` task, trace per call
-- ~~**M3** — Full agent loop + HITL~~ ✅ `v0.3.0-m3` — LangGraph state machine + Trigger.dev durability + approve-plan / approve-papers gates
-- ~~**M3.5a** — LLM provider abstraction~~ ✅ `v0.3.5-m3.5a` — Vercel AI SDK dispatcher, 4-provider adapters, tier mapping
-- ~~**M3.5b** — Cloud deploy ($0)~~ ✅ `v0.3.6-m3.5b` — Vercel + Neon + R2 + Langfuse Cloud + Trigger.dev Cloud + Clerk Cloud
-- ~~**M3.5c** — Self-host fallback~~ ✅ `v0.6.0-m3.5c` — Oracle Cloud Always Free walkthrough + `infra/self-host/`
-- ~~**M4a** — Critic + cite_check~~ ✅ `v0.4.0-m4a` — LLM-as-judge critic loop + per-citation verification post-pass + `ClaimCheck` table
-- ~~**M4b** — Eval harness + public `/evals`~~ ✅ `v0.4.1-m4b` — Headless graph runner, 4 metrics, public dashboard, regression gate
-- ~~**v0.4.2** — Claude Agent SDK provider~~ ✅ — Free programmatic Claude via Code CLI session (no API key), for local eval baselines
-- ~~**v0.5.0** — Trigger.dev Cloud production deploy~~ ✅ — All 3 background tasks on managed infra
-- ~~**v0.5.1** — First live end-to-end review on prod~~ ✅ — Real PDF (ReAct paper) → full SLR pipeline → completed draft + critic + cite_check
-- ~~**v0.7.0-m5** — Authenticated MCP server~~ ✅ — Streamable HTTP at `/api/mcp/mcp`, OAuth 2.1 + PKCE + DCR via Clerk, 3 read-only tools, audit log + rate limits, published to the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth) as `io.github.ahmedEid1/thoth`
-- ~~**v0.7.1** — Post-M5 hardening + ibis brand + anonymous demo~~ ✅ — Cost cap on every agent node (per-run token budget), 2-phase commit-then-deliver for HITL gates (exactly-once via Postgres advisory lock + Trigger.dev idempotent `wait.completeToken`), cron outbox + UI retry for stranded checkpoints, security headers, MCP `ToolAnnotations`, accessibility pass (skip-link, contrast, focus rings), Delapouite ibis identity + papyrus design tokens, `/api/demo/start` + `/demo/handoff` for one-click anonymous trial (no pre-cloned sample — guests build their own review)
-- ~~**v1.0.0** — Engineering complete~~ ✅ — 14 real-paper goldens (`/evals` now 17 questions covering LLM / ML / SE literature), weekly CI eval workflow with regression gate (`.github/workflows/evals.yml`), pinned exemplar review at `/showcase` (no-LLM-required, shows cite_check catching fabricated citations), `DEMO_DISABLED` operator kill switch + `/admin/guests` observability, char-based token estimate so cost cap engages on the claude-agent provider, one-shot `LLM_FALLBACK_PROVIDER` for Mistral 5xx → Groq resilience, `McpCall.userId` FK with cascade, `docs/security-and-privacy.md` evidence page for the GDPR-friendly claim
-- ~~**v1.0.1** — Post-release polish~~ ✅ — public `/evals` page gains metric explanations + "How this works" section (lifecycle / philosophy / per-metric definitions), eval CI bounded to a 6-golden smoke set with per-golden walltime cap (`EVAL_GOLDEN_TIMEOUT_MS`) and bumped `generateObject` retries so a flaky free-tier provider can't kill the whole sweep, regression threshold widened 10% → 20% to tolerate per-claim LLM-judge variance.
-- ~~**v2.0.0** — Outbound web search~~ ✅ — Multi-agent SLR: `discoverer → fetcher → screener` chain finds papers across **OpenAlex**, **arXiv**, **Exa** (opt-in), acquires open-access PDFs, OCRs them, applies plan-derived inclusion criteria — before V1's assessor/drafter/critic/cite_check pipeline ever runs. Three search modes: `uploaded_only` (V1, default), `outbound` (no uploads needed), `hybrid` (uploads + outbound merged via DOI-aware dedup). Per-project tuning (year range, max hits, skip-discovery-gate). New HITL gate (`APPROVE_DISCOVERY`) + status enum (`DISCOVERING` / `FETCHING` / `SCREENING`). V2 MCP tools (`list_discovered_papers`, `get_search_queries`). Eval framework gains `discovery_recall` + `screening_precision` metrics. Full shipping log — initial spec + audit pass + 30+ follow-on milestones (UX polish, CRUD gaps, status visibility, observability, OCR title sanitisation, human-readable downloads, HITL ergonomics): [`docs/superpowers/plans/thoth-v2-roadmap.md`](docs/superpowers/plans/thoth-v2-roadmap.md).
-
-V2 is shipped. **22 live e2e tests** pass against the deployed instance, exercising every user workflow including the COMPLETED happy-path agent run end-to-end through Mistral free tier. Eval CI continues to run weekly; the dashboard at `/evals` updates whenever a sweep lands.
-
-## Security & privacy
-
-See [`docs/security-and-privacy.md`](docs/security-and-privacy.md) for the full evidence page behind the GDPR-friendly claim: data inventory, jurisdiction of every service, retention rules, deletion paths, the auth model end-to-end, and the limits we don't pretend to have closed.
+- **[Architecture](docs/architecture.md)** — the agent pipeline, full stack, v2 flow, tests
+- **[LLM providers](docs/llm-providers.md)** — the 6-provider matrix + resilience knobs
+- **[MCP tools](docs/mcp/tools.md)** · **[MCP security](docs/mcp/security.md)**
+- **[Security & privacy](docs/security-and-privacy.md)** — data inventory, jurisdictions, deletion paths
+- **[Self-host](docs/self-host/oracle-cloud-quickstart.md)** — one VM on Oracle Cloud Always Free
+- **[Changelog](CHANGELOG.md)** · **[Design spec & build log](docs/superpowers/)** · **[Releasing](RELEASING.md)**
 
 ## Credits
 
@@ -190,4 +145,4 @@ Ibis icon by [Delapouite](https://delapouite.com/) under [CC BY 3.0](https://cre
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 Ahmed Hobeishy
