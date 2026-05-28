@@ -1,3 +1,5 @@
+import { compactCount } from "@/lib/format";
+
 /**
  * Server-component badge showing the run's token consumption against
  * the deploy's MAX_TOKENS_PER_RUN ceiling.
@@ -43,17 +45,12 @@ export function TokenSpendBadge({
         ? "text-[var(--thoth-blue-ink)] bg-[color-mix(in_oklab,var(--thoth-gold)_18%,var(--thoth-papyrus))] border-[var(--thoth-gold)]/30"
         : "text-[var(--thoth-stone)] bg-[var(--thoth-papyrus)] border-[var(--thoth-rule)]";
 
-  // Format large numbers as `121k` rather than `121,463` so the badge
-  // stays compact next to the status pill.
-  const compact = (n: number): string =>
-    n >= 10_000 ? `${(n / 1000).toFixed(0)}k` : n.toLocaleString();
-
   return (
     <span
       className={`inline-flex items-baseline gap-2 px-2 py-1 text-[10px] font-mono rounded border ${colour}`}
       title={`Billable: ${billable.toLocaleString()} of ${budget.toLocaleString()} tokens (in ${totalIn.toLocaleString()} · out ${totalOut.toLocaleString()}${totalCache > 0 ? ` · cache ${totalCache.toLocaleString()}` : ""})`}
     >
-      <span>{compact(billable)} / {compact(budget)} tk</span>
+      <span>{compactCount(billable)} / {compactCount(budget)} tk</span>
       <span className="opacity-70">{pct}%</span>
     </span>
   );
