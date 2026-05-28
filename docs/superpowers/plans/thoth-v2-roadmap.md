@@ -125,6 +125,47 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M118 — Prefer the provider title for outbound-run citations
+
+**Goal:** Generalize the M116 showcase fix to real outbound runs. The
+References list (`toDraftReferences`), the run-detail page, the draft `.md`
+appendix, and the `.bib` download all derived a paper's title from
+`extractPaperTitle(parsedMarkdown)` — re-deriving it from the OCR'd PDF text.
+But every outbound paper already carries an authoritative, clean title on its
+`DiscoveredPaper` row (from OpenAlex / arXiv), and that join was *already*
+fetched for author/year/venue. When OCR produced a missing or messy heading,
+the citation read "Untitled paper" (or a garbled title) even though the real
+title sat unused one field away — exactly the M116 failure, latent for any
+real run.
+
+**What shipped:**
+
+- `lib/draft-references.ts`: `INCLUDED_PAPER_REFERENCE_SELECT` now selects
+  `discoveredAs.title`; `toDraftReferences` uses
+  `discoveredAs?.title ?? extractPaperTitle(parsedMarkdown)`. Outbound papers
+  get the provider title; uploaded PDFs (no `DiscoveredPaper`) fall back to
+  OCR extraction. The change flows to all three reference surfaces via the
+  shared select.
+- `app/api/runs/[id]/citations.bib/route.ts`: same precedence for the BibTeX
+  `title` field.
+
+`DiscoveredPaper.title` is non-null, so this eliminates "Untitled paper" for
+outbound citations entirely. The showcase (corpus items have no
+`DiscoveredPaper`) still uses the M116 OCR-heading path — the two fixes are
+complementary.
+
+**Tests:** draft-references prefers the provider title over a garbled OCR
+heading + resolves a title when the markdown has no heading at all; the `.bib`
+route test proves the outbound entry uses the provider title, not the OCR one.
+643 unit/integ green.
+
+**Why this matters:** citations are the product's core output; titles sourced
+from fragile OCR extraction when an authoritative title is in hand is a
+latent quality bug for every outbound review's References + .bib export.
+
+**Key files:** `lib/draft-references.ts`,
+`app/api/runs/[id]/citations.bib/route.ts`
+
 ## V2-M117 — Fix expected-claim-coverage metric (0% on every golden)
 
 **Goal:** Fix a real metric defect found by inspecting the live `/evals`

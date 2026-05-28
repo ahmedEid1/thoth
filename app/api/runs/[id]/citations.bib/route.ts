@@ -59,7 +59,7 @@ export async function GET(
               // real bibliographic fields, not just title + DOI. Null for
               // uploaded PDFs (no DiscoveredPaper).
               discoveredAs: {
-                select: { authors: true, publicationYear: true, venue: true },
+                select: { title: true, authors: true, publicationYear: true, venue: true },
               },
             },
           },
@@ -72,16 +72,17 @@ export async function GET(
   }
 
   const papers: BibTexPaper[] = run.includedPapers.map((ip) => {
-    // Shared title extraction (lib/paper-title.ts) — same sanitisation
-    // the corpus-list UI uses, so a title like `# **Bold**` doesn't
-    // leak literal asterisks into the BibTeX. Handles H1 AND H2 (the
-    // old inline version only matched `# `, missing H2-only OCR output).
-    const title = extractPaperTitle(ip.corpusItem.parsedMarkdown);
+    // Title prefers the authoritative provider title (DiscoveredPaper.title
+    // from OpenAlex / arXiv) over re-deriving it from OCR'd markdown — the
+    // latter can be missing/messy. Falls back to the shared extractPaperTitle
+    // (same sanitisation the corpus-list UI uses) for uploaded PDFs with no
+    // DiscoveredPaper.
+    const discovered = ip.corpusItem.discoveredAs;
+    const title = discovered?.title ?? extractPaperTitle(ip.corpusItem.parsedMarkdown);
     // Citation key = corpusItemId, matching the `[<id>]` markers the
     // drafter writes into the review (see schema comment above). This is
     // what makes the .bib useful: paste the draft into LaTeX, drop in
     // the .bib, and every `[<id>]` resolves.
-    const discovered = ip.corpusItem.discoveredAs;
     return {
       citationKey: ip.corpusItemId,
       title,

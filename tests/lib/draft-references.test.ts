@@ -2,15 +2,17 @@ import { describe, it, expect } from "vitest";
 import { toDraftReferences } from "@/lib/draft-references";
 
 describe("toDraftReferences", () => {
-  it("maps a V2 discovered paper with full metadata", () => {
+  it("maps a V2 discovered paper, preferring the provider title over the OCR heading", () => {
     const out = toDraftReferences([
       {
         corpusItemId: "cm_a",
         corpusItem: {
-          parsedMarkdown: "# Graph Attention Networks\n\nbody",
+          // OCR heading is garbled; the clean provider title must win.
+          parsedMarkdown: "# Gr4ph Att3nt10n Netw0rks (ocr noise)\n\nbody",
           externalDoi: "10.1/gat",
           externalArxivId: null,
           discoveredAs: {
+            title: "Graph Attention Networks",
             authors: ["P. Veličković", "G. Cucurull"],
             publicationYear: 2018,
             venue: "ICLR",
@@ -29,6 +31,26 @@ describe("toDraftReferences", () => {
         externalArxivId: null,
       },
     ]);
+  });
+
+  it("uses the provider title even when the OCR markdown has no heading (no more 'Untitled')", () => {
+    const out = toDraftReferences([
+      {
+        corpusItemId: "cm_d",
+        corpusItem: {
+          parsedMarkdown: "no usable heading here, just OCR prose",
+          externalDoi: null,
+          externalArxivId: "2310.06770",
+          discoveredAs: {
+            title: "ReAct: Synergizing Reasoning and Acting in Language Models",
+            authors: ["S. Yao"],
+            publicationYear: 2022,
+            venue: "ICLR",
+          },
+        },
+      },
+    ]);
+    expect(out[0]!.title).toBe("ReAct: Synergizing Reasoning and Acting in Language Models");
   });
 
   it("maps an uploaded PDF (no discoveredAs) to title-only nulls", () => {

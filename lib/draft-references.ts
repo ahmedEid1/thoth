@@ -17,6 +17,7 @@ export type IncludedPaperForReference = {
     externalDoi: string | null;
     externalArxivId: string | null;
     discoveredAs: {
+      title: string;
       authors: string[];
       publicationYear: number | null;
       venue: string | null;
@@ -37,7 +38,7 @@ export const INCLUDED_PAPER_REFERENCE_SELECT = {
       externalDoi: true,
       externalArxivId: true,
       discoveredAs: {
-        select: { authors: true, publicationYear: true, venue: true },
+        select: { title: true, authors: true, publicationYear: true, venue: true },
       },
     },
   },
@@ -45,16 +46,20 @@ export const INCLUDED_PAPER_REFERENCE_SELECT = {
 
 /**
  * Map included-paper rows to the DraftReference shape the draft
- * References surfaces (on-page + .md download) consume. Title via the
- * shared `extractPaperTitle`; author/year/venue from the
- * DiscoveredPaper join (null for uploaded PDFs).
+ * References surfaces (on-page + .md download) consume. Title prefers the
+ * authoritative provider title from the DiscoveredPaper join (OpenAlex /
+ * arXiv supply a clean bibliographic title), falling back to
+ * `extractPaperTitle` on the OCR'd markdown for uploaded PDFs that have no
+ * DiscoveredPaper. This avoids "Untitled paper" for outbound papers whose
+ * OCR heading is missing/messy even though the provider title is known.
+ * author/year/venue come from the same join (null for uploaded PDFs).
  */
 export function toDraftReferences(
   includedPapers: IncludedPaperForReference[],
 ): DraftReference[] {
   return includedPapers.map((ip) => ({
     paperId: ip.corpusItemId,
-    title: extractPaperTitle(ip.corpusItem.parsedMarkdown),
+    title: ip.corpusItem.discoveredAs?.title ?? extractPaperTitle(ip.corpusItem.parsedMarkdown),
     authors: ip.corpusItem.discoveredAs?.authors ?? null,
     year: ip.corpusItem.discoveredAs?.publicationYear ?? null,
     venue: ip.corpusItem.discoveredAs?.venue ?? null,

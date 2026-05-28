@@ -41,9 +41,12 @@ describe("GET /api/runs/[id]/citations.bib", () => {
             source: "arxiv:arxiv:2201.11903",
             externalDoi: null,
             externalArxivId: "2201.11903",
-            parsedMarkdown: "# Chain of thought prompting\n\nText.",
-            // V2 discovered paper — M97 joins these into the BibTeX.
+            // Garbled OCR heading — the clean provider title must win (M118).
+            parsedMarkdown: "# Cha1n 0f th0ught pr0mpt1ng (ocr)\n\nText.",
+            // V2 discovered paper — M97 joins author/year/venue; M118 also
+            // takes the title from here rather than the OCR'd markdown.
             discoveredAs: {
+              title: "Chain-of-Thought Prompting Elicits Reasoning in LLMs",
               authors: ["Jason Wei", "Xuezhi Wang"],
               publicationYear: 2022,
               venue: "NeurIPS",
@@ -72,9 +75,11 @@ describe("GET /api/runs/[id]/citations.bib", () => {
     // against the draft. (Was paper_NNN, which never matched.)
     expect(body).toContain("@article{cm_corpus_a,");
     expect(body).toContain("@misc{cm_corpus_b,");
-    // Titles pulled from the first '# ' heading in each parsedMarkdown.
+    // Uploaded PDF (no DiscoveredPaper) → title from the OCR '# ' heading.
     expect(body).toContain("title = {First paper title}");
-    expect(body).toContain("title = {Chain of thought prompting}");
+    // Outbound paper → authoritative provider title, NOT the garbled OCR one.
+    expect(body).toContain("title = {Chain-of-Thought Prompting Elicits Reasoning in LLMs}");
+    expect(body).not.toContain("Cha1n 0f th0ught");
     expect(body).toContain("doi = {10.1/test}");
     expect(body).toContain("eprint = {2201.11903}");
     // M97: the V2 discovered paper (paper_002) gets author/year/journal
