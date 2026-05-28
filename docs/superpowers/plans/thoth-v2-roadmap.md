@@ -146,6 +146,32 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M73 — README v2.0.0 entry reflects current shipping log
+
+**Goal:** The README v2.0.0 line claimed "the 10 audit
+bugs found-and-fixed in the post-M4 review pass". True at
+v2.0.0 cut but stale: the V2 roadmap has continued well
+past that — 30+ post-audit milestones covering UX polish,
+CRUD gaps, status visibility, observability, OCR title
+sanitisation, human-readable downloads, and HITL gate
+ergonomics.
+
+**What shipped:**
+
+- README's v2.0.0 changelog entry updated: replaces the
+  "10 audit bugs" wording with a short list of the
+  follow-on theme groups (UX polish, CRUD gaps, status
+  visibility, observability, OCR sanitisation,
+  human-readable downloads, HITL ergonomics). Points at
+  the roadmap doc for the full per-milestone log.
+
+**Why no number:** the milestone count is a moving target
+while the loop is still firing. The themes describe what
+shipped without forcing the README into lockstep with the
+roadmap header count.
+
+**Key files:** `README.md`
+
 ## V2-M72 — HITL reject panels clear reason on Cancel
 
 **Goal:** Same class of state-leak as M70/M71, applied to
