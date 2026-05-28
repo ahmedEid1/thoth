@@ -9,6 +9,7 @@ infra/self-host/backups/
 coverage/
 playwright-report/
 test-results/
+.playwright-mcp/
 *.log
 python/.venv/
 python/sample.pdf
