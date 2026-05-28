@@ -169,12 +169,32 @@ export default async function RunPage({
           </div>
         </div>
         {run.failureReason && (
-          <div className="rounded border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
-            <p className="font-medium text-destructive">{run.failureReason}</p>
+          // Style differs by terminal status: FAILED is an agent error
+          // (destructive red), REJECTED is the user's own deliberate
+          // choice (muted neutral) — the same red panel for both made
+          // REJECTED runs look alarming when they were intentional.
+          <div
+            className={
+              run.status === "REJECTED"
+                ? "rounded border border-[var(--thoth-rule)] bg-[var(--thoth-papyrus)] px-3 py-2 text-sm"
+                : "rounded border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm"
+            }
+          >
+            <p
+              className={
+                run.status === "REJECTED"
+                  ? "font-medium text-[var(--thoth-blue-ink)]"
+                  : "font-medium text-destructive"
+              }
+            >
+              {run.status === "REJECTED" ? "Rejected: " : ""}
+              {run.failureReason}
+            </p>
             {(() => {
-              // Surface which step blew up — the last step with a failureReason,
-              // by startedAt. Per-item inner steps may also have a failureReason
-              // but the *outer* terminal failure is what we want to spotlight.
+              // "Failed during" caption is only meaningful for true
+              // failures — REJECTED runs end at an HITL gate by user
+              // choice, not at a step that crashed. Hide for REJECTED.
+              if (run.status === "REJECTED") return null;
               const failedStep = [...run.steps]
                 .reverse()
                 .find((s) => s.failureReason);

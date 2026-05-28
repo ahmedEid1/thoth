@@ -146,6 +146,41 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M86 — Distinguish REJECTED from FAILED in the run-detail panel
+
+**Goal:** Both REJECTED + FAILED runs have a non-null
+`failureReason` and triggered the same destructive-
+red panel (M51). But the panels mean different
+things: FAILED = agent crashed (rate limit, bug,
+provider outage); REJECTED = user deliberately
+aborted at an HITL gate. Treating them visually
+identically made REJECTED runs look like errors the
+user should investigate, when really they were
+user-driven decisions.
+
+**What shipped:**
+
+- Panel styling forks on `run.status`:
+    - REJECTED → neutral papyrus/blue-ink (informational).
+      Prefixed "Rejected: " before the reason so the
+      copy is unambiguous.
+    - FAILED → existing destructive red (unchanged).
+- "Failed during: [step]" caption hidden for REJECTED
+  runs — that copy implies a step crashed, but
+  REJECTED ends at an HITL gate by user choice
+  before any step crashed.
+- "Start new run" recovery button unchanged — both
+  terminal-non-success states benefit from the
+  shortcut.
+
+**Why visual differentiation matters:** users who
+reject a plan because their question needs
+refinement shouldn't come back to a red error panel.
+The rejection is the user *informing* the agent, not
+the agent failing.
+
+**Key files:** `app/projects/[id]/runs/[runId]/page.tsx`
+
 ## V2-M85 — relativeTime: fix the 360-364 day "this year" hole
 
 **Goal:** M55's `relativeTime()` had a tier-ordering
