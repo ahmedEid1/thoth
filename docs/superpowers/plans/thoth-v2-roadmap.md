@@ -125,6 +125,39 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M37 — BibTeX export of included papers
+
+**Goal:** Researchers writing actual literature reviews need to
+cite the papers Thoth selected. They can copy DOIs from the
+discovery summary manually but that's friction. Add a one-click
+BibTeX download to drop straight into their `.bib` file.
+
+**What shipped:**
+
+- New helper `lib/bibtex.ts` with `paperToBibtex` +
+  `buildBibtexFile`. Picks `@article` when a DOI is present,
+  `@misc` otherwise (the catch-all for arXiv preprints + grey
+  literature). Citation keys match the draft's `paper_NNN`
+  convention so search-and-replace into LaTeX works directly.
+  Title escaping handles `\`, `{`, `}`, `@`. Key sanitisation
+  preserves DOI dots but replaces slashes with underscores.
+- New route: `GET /api/runs/[id]/citations.bib`. Joins each
+  IncludedPaper to its CorpusItem for title (extracted from the
+  first `# ` heading in parsedMarkdown) + externalDoi +
+  externalArxivId + source. `Content-Disposition: attachment;
+  filename="thoth-<id>-citations.bib"`. 404 for no-draft,
+  unowned, or missing.
+- `DraftView` gains a second "Download .bib" link alongside the
+  M34 "Download .md" link. The download trio is now: markdown
+  draft (M34) · cite_check audit JSON (M35) · BibTeX citations
+  (M37).
+- 14 new tests: 9 in `tests/lib/bibtex.test.ts` (every BibTeX
+  branch + edge case) + 5 in `tests/api/runs-citations-bib.test.ts`
+  (full route shape, no-draft, unowned, unauth, empty-corpus
+  comment).
+
+**Key files:** `lib/bibtex.ts`, `app/api/runs/[id]/citations.bib/route.ts`, `components/runs/draft-view.tsx`, `tests/lib/bibtex.test.ts`, `tests/api/runs-citations-bib.test.ts`
+
 ## V2-M36 — Token-spend badge on the run-detail page
 
 **Goal:** Researchers on free-tier LLMs care about per-run cost.
