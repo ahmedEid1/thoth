@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DeleteProjectButton } from "./delete-project-button";
+import { RunStatusPill, type RunStatus } from "@/components/runs/run-status-pill";
 
 type Project = {
   id: string;
@@ -13,6 +14,11 @@ type Project = {
   // forward-compat reason — the editorial card just hides the line
   // when counts aren't passed.
   _count?: { corpus: number; runs: number };
+  // Latest run, if any. Used to render a small status pill next to
+  // the title so users see at-a-glance whether the project's most
+  // recent run is COMPLETED / RUNNING / FAILED. Optional for the same
+  // showcase-fixture forward-compat reason.
+  runs?: { status: string; createdAt: Date | string }[];
 };
 
 function countsLine(counts: { corpus: number; runs: number }): string {
@@ -80,6 +86,11 @@ export function ProjectList({ projects }: { projects: Project[] }) {
                     title={p.searchScope === "outbound" ? "Outbound search" : "Hybrid (uploaded + outbound)"}
                   >
                     {p.searchScope === "hybrid" ? "hybrid" : "v2"}
+                  </span>
+                )}
+                {p.runs && p.runs.length > 0 && p.runs[0] && (
+                  <span className="ml-2 align-middle inline-flex">
+                    <RunStatusPill status={p.runs[0].status as RunStatus} />
                   </span>
                 )}
               </h2>

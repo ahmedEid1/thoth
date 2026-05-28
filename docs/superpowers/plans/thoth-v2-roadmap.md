@@ -125,6 +125,40 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M54 — Latest-run pill on dashboard project rows
+
+**Goal:** The dashboard project list showed title + scope
+badge + papers/reviews counts. A user with several
+projects couldn't tell *at a glance* if a project's most
+recent run was completed, mid-flight, or failed — they
+had to click into each project to see.
+
+**What shipped:**
+
+- Dashboard query adds
+  `runs: { orderBy: { createdAt: "desc" }, take: 1,
+    select: { status: true, createdAt: true } }`. Cheap
+  thanks to the implicit `[projectId, createdAt]` index
+  from the FK + orderBy.
+- ProjectList row's title gets a small inline status pill
+  rendered via the same `RunStatusPill` the project page
+  uses — so the visual language is consistent across the
+  dashboard + project-detail surfaces.
+- Pill hides when the project has zero runs (a fresh
+  project shouldn't read "pending" without context).
+- `runs?` on the Project prop is optional for the same
+  showcase-fixture forward-compat reason `_count?` was —
+  v1-style callers without that data render the existing
+  layout unchanged.
+
+**Why "latest" and not a summary:** the M49 RunsBreakdown
+already provides a multi-status summary on the project
+detail page. On the dashboard, the latest run is the most
+actionable signal — "is the thing I started yesterday
+done yet" / "did the run I queued before lunch finish".
+
+**Key files:** `app/dashboard/page.tsx`, `components/projects/project-list.tsx`
+
 ## V2-M53 — Empty-discovery guidance copy
 
 **Goal:** When the discoverer ran but every adapter

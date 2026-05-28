@@ -11,7 +11,18 @@ export default async function DashboardPage() {
     // Count corpus + runs per row so the list eyebrow can show
     // "3 papers · 1 review" without an N+1 fan-out. _count is a
     // single Postgres scalar subquery per relation in Prisma.
-    include: { _count: { select: { corpus: true, runs: true } } },
+    include: {
+      _count: { select: { corpus: true, runs: true } },
+      // Latest run's status so the row can render a small status pill
+      // matching what the project-detail page would show. take: 1 +
+      // orderBy: createdAt desc is cheap thanks to the [projectId,
+      // createdAt] index implied by the FK + the orderBy.
+      runs: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { status: true, createdAt: true },
+      },
+    },
   });
 
   return (
