@@ -94,19 +94,33 @@ export function ProjectList({ projects, nowMs }: { projects: Project[]; nowMs?: 
               >
                 {p.title}
                 {(p.searchScope === "outbound" || p.searchScope === "hybrid") && (
-                  <span
-                    className="ml-2 align-middle text-[0.6rem] font-sans font-medium uppercase tracking-wider text-[var(--thoth-blue)] bg-[var(--thoth-blue-mist)]/50 px-1.5 py-0.5 rounded"
-                    title={p.searchScope === "outbound" ? "Outbound search" : "Hybrid (uploaded + outbound)"}
-                  >
-                    {p.searchScope === "hybrid" ? "hybrid" : "v2"}
-                  </span>
-                )}
-                {p.runs && p.runs.length > 0 && p.runs[0] && (
-                  <span className="ml-2 align-middle inline-flex">
-                    <RunStatusPill status={p.runs[0].status as RunStatus} />
-                  </span>
+                  // Decorative badge + sr-only label — same pattern as
+                  // the project header (see app/projects/[id]/page.tsx).
+                  // Keeps the h2's accessible name as the bare title.
+                  <>
+                    <span
+                      className="ml-2 align-middle text-[0.6rem] font-sans font-medium uppercase tracking-wider text-[var(--thoth-blue)] bg-[var(--thoth-blue-mist)]/50 px-1.5 py-0.5 rounded"
+                      aria-hidden="true"
+                      title={p.searchScope === "outbound" ? "Outbound search" : "Hybrid (uploaded + outbound)"}
+                    >
+                      {p.searchScope === "hybrid" ? "hybrid" : "v2"}
+                    </span>
+                    <span className="sr-only">
+                      {` (${p.searchScope === "outbound" ? "Outbound search" : "Hybrid"})`}
+                    </span>
+                  </>
                 )}
               </h2>
+              {p.runs && p.runs.length > 0 && p.runs[0] && (
+                // Latest-run pill rendered as a sibling of the h2 (not
+                // nested) so the heading's accessible name stays as the
+                // bare title — keeps exact-match selectors + screen-
+                // reader heading nav clean. The pill itself is still
+                // visible inline thanks to the surrounding flex layout.
+                <p className="mt-1 inline-flex">
+                  <RunStatusPill status={p.runs[0].status as RunStatus} />
+                </p>
+              )}
               <p className="text-sm text-[var(--thoth-stone)] mt-2 line-clamp-2 leading-relaxed">
                 {p.question}
               </p>

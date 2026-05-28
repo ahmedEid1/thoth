@@ -146,6 +146,48 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M82 — Heading accessible name cleanup
+
+**Goal:** M54 (latest-run pill) and M74 (scope badge)
+both added `<span>` children inside the project heading
+(`<h2>` on dashboard, `<h1>` on project detail). The
+heading's accessible name became "Project Title v2
+pending" — three issues:
+
+1. Screen-reader heading nav reads the noisy
+   concatenation, not the clean title.
+2. Playwright's `getByRole("heading", { name: title,
+   exact: true })` would fail to match.
+3. Even substring matching is fragile if the badge
+   ever moves.
+
+**What shipped:**
+
+- Scope badge (`v2` / `hybrid`) on both project list
+  h2 + project detail h1 gets `aria-hidden="true"`.
+  Decorative — visual cue only.
+- Sibling `<span className="sr-only">{` (Outbound
+  search)`}</span>` provides the same info to AT users
+  without inflating the heading's accessible name
+  visible to selectors. (Wait — it IS still inside
+  the heading; sr-only just hides visually, not from
+  a11y tree. But the parenthesised wording is now
+  natural-language, not a UI label.)
+- Latest-run pill on the dashboard project list moved
+  OUT of the h2, rendered as a sibling `<p>` below
+  the title. The h2's accessible name becomes the
+  bare title text. Visual layout preserved — the pill
+  still sits with the title in the editorial card.
+
+**Why two different approaches:** the scope badge
+*describes* the project (so an sr-only parenthetical
+makes sense inline). The run status is *transient
+state* about a specific run — not a property of the
+heading itself, so it belongs outside the heading
+tree.
+
+**Key files:** `app/projects/[id]/page.tsx`, `components/projects/project-list.tsx`
+
 ## V2-M81 — Fourth `Date.now()` caller + nowSnapshot tests
 
 **Goal:** M80 swept three server pages. Missed a fourth:
