@@ -146,6 +146,39 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M72 — HITL reject panels clear reason on Cancel
+
+**Goal:** Same class of state-leak as M70/M71, applied to
+the Reject inputs on `PlanApprovalCard` and
+`DiscoveryApprovalCard`. A user who:
+  1. Clicked "Reject"
+  2. Typed a reason ("plan is too narrow")
+  3. Changed their mind and clicked "Cancel"
+  4. Later re-opened the reject panel
+…saw their abandoned reason in the textarea. Not actively
+harmful (they can clear + re-type) but inconsistent with
+M70/M71 and risks the user accidentally submitting an
+outdated reason.
+
+**What shipped:**
+
+- `PlanApprovalCard` Cancel button now does
+  `setShowReject(false); setRejectReason("");` instead of
+  just hiding the panel.
+- `DiscoveryApprovalCard` same fix.
+- `PapersApprovalCard` left alone — its reject sends a
+  hardcoded `"User aborted at papers gate"` reason
+  (server-side default for the no-input gate), so there's
+  no state to leak.
+
+**Why not also clear on a 4xx error from the
+approve/reject API:** if the network fails or the
+checkpoint was decided concurrently, the user wants to
+retry with the same reason. Only the Cancel path
+explicitly throws the reason away.
+
+**Key files:** `components/runs/plan-approval-card.tsx`, `components/runs/discovery-approval-card.tsx`
+
 ## V2-M71 — EditProjectDialog resets to props on close
 
 **Goal:** Same class of bug as M70, applied to the edit

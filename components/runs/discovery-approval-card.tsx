@@ -214,7 +214,18 @@ export function DiscoveryApprovalCard({ runId, checkpointId, queries, hits }: Pr
             rows={2}
           />
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowReject(false)} disabled={isPending}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Clear the optional reason on Cancel so the user
+                // doesn't see their abandoned reject reason when re-
+                // opening the reject panel. Matches M70/M71's reset
+                // posture; mirrors the PlanApprovalCard change.
+                setShowReject(false);
+                setRejectReason("");
+              }}
+              disabled={isPending}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={reject} disabled={isPending}>
