@@ -146,6 +146,37 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M80 — Extract `nowSnapshot()` helper
+
+**Goal:** Three server pages (dashboard, project detail,
+run detail) each carried their own `// eslint-disable-
+next-line react-hooks/purity -- ...` comment justifying
+a `Date.now()` call in render. Each comment said
+basically the same thing — "server component, invoked
+per request, wall-clock is fine". Code smell:
+duplicated justifications + visual noise.
+
+**What shipped:**
+
+- New `lib/now.ts` exports `nowSnapshot(): number` — a
+  thin wrapper around `Date.now()` with the eslint-
+  disable + the rationale comment in one place.
+- All three server pages swapped to `nowSnapshot()`,
+  removing their per-site disable lines.
+- JSDoc warns against using the helper in client
+  components (where the rule's "don't call impure
+  functions in render" advice is genuinely correct —
+  client components should `useEffect` + `useState` to
+  tick).
+
+**Why a single named helper instead of disabling the
+rule globally:** the rule is good for client components
+where impure render-time calls cause subtle re-render
+bugs. We want the rule active everywhere by default;
+the helper is a focused, named exemption.
+
+**Key files:** `lib/now.ts`, `app/dashboard/page.tsx`, `app/projects/[id]/page.tsx`, `app/projects/[id]/runs/[runId]/page.tsx`
+
 ## V2-M79 — MCP `get_search_queries` + `list_discovered_papers` project context
 
 **Goal:** Completes the MCP enrichment chain (M77 → M78

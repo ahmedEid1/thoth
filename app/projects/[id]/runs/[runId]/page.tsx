@@ -31,6 +31,7 @@ import { RunStatusPill, type RunStatus } from "@/components/runs/run-status-pill
 import { RunStepList, nodeLabel } from "@/components/runs/run-step-list";
 import { DeleteRunButton } from "@/components/runs/delete-run-button";
 import { StartReviewButton } from "@/components/runs/start-review-button";
+import { nowSnapshot } from "@/lib/now";
 import { PlanApprovalCard } from "@/components/runs/plan-approval-card";
 import { PapersApprovalCard } from "@/components/runs/papers-approval-card";
 import { DiscoveryApprovalCard } from "@/components/runs/discovery-approval-card";
@@ -191,11 +192,7 @@ export default async function RunPage({
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Steps</h2>
-        {/* eslint-disable-next-line react-hooks/purity -- wall-clock IS the
-            source of truth for in-progress step durations; the page is a
-            server component re-invoked per request (and via RefreshTick polling
-            every 2s), so `nowMs` advances naturally on each render. */}
-        <RunStepList steps={run.steps as never} nowMs={Date.now()} />
+        <RunStepList steps={run.steps as never} nowMs={nowSnapshot()} />
       </section>
 
       {isOutbound && (discoveryQueries.length > 0 || run.discoveredPapers.length > 0) && (

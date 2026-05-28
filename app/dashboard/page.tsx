@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ProjectList } from "@/components/projects/project-list";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
+import { nowSnapshot } from "@/lib/now";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -51,9 +52,7 @@ export default async function DashboardPage() {
         <NewProjectDialog />
       </header>
 
-      {/* eslint-disable-next-line react-hooks/purity -- server-render
-          snapshot for relative-time labels. */}
-      <ProjectList projects={projects} nowMs={Date.now()} />
+      <ProjectList projects={projects} nowMs={nowSnapshot()} />
     </main>
   );
 }

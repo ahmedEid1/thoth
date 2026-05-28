@@ -36,6 +36,7 @@ import { ProjectTokenStat } from "@/components/projects/project-token-stat";
 import { RefreshTickList } from "@/components/runs/refresh-tick";
 import { RunsBreakdown } from "@/components/runs/runs-breakdown";
 import { relativeTime } from "@/lib/relative-time";
+import { nowSnapshot } from "@/lib/now";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -196,8 +197,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <ul className="space-y-2">
             <RefreshTickList runs={project.runs.map((r) => ({ status: r.status }))} />
             {(() => {
-              // eslint-disable-next-line react-hooks/purity -- server-render snapshot for the per-row "Started X ago" label.
-              const nowMs = Date.now();
+              const nowMs = nowSnapshot();
               return project.runs.map((r) => {
                 const startedAt = new Date(r.createdAt);
                 // Completed runs get a more useful "Completed X ago" label
