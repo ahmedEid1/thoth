@@ -1,3 +1,5 @@
+import { compactCount } from "@/lib/format";
+
 /**
  * Project-level token-usage stat. Shows aggregate input + output tokens
  * across every RunStep of every run owned by the project. Cache-read
@@ -21,13 +23,6 @@ export function ProjectTokenStat({
   const billable = tokens.in + tokens.out;
   if (billable === 0) return null;
 
-  const compact = (n: number): string =>
-    n >= 1_000_000
-      ? `${(n / 1_000_000).toFixed(1)}M`
-      : n >= 10_000
-        ? `${(n / 1000).toFixed(0)}k`
-        : n.toLocaleString();
-
   const tooltip = `Total tokens across all runs: in ${tokens.in.toLocaleString()} · out ${tokens.out.toLocaleString()}${
     tokens.cache > 0 ? ` · cache ${tokens.cache.toLocaleString()}` : ""
   }`;
@@ -37,7 +32,7 @@ export function ProjectTokenStat({
       className="inline-flex items-baseline gap-2 px-2 py-1 text-[10px] font-mono rounded border text-[var(--thoth-stone)] bg-[var(--thoth-papyrus)] border-[var(--thoth-rule)]"
       title={tooltip}
     >
-      <span>{compact(billable)} tk total</span>
+      <span>{compactCount(billable)} tk total</span>
     </span>
   );
 }

@@ -125,6 +125,36 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M60 — Shared `compactCount` formatter helper
+
+**Goal:** Both `TokenSpendBadge` (M36) and the new
+`ProjectTokenStat` (M59) implemented their own
+"format a token count as 121k / 1.2M" helper. Diverging
+behaviour at the M-boundary (token-spend-badge didn't
+handle ≥1M; project-token-stat did) waiting to bite
+later.
+
+**What shipped:**
+
+- New `lib/format.ts` with a single `compactCount(n)`
+  helper. Buckets: <10k locale grouped ("1,234"); 10k..1M
+  integer k ("121k"); ≥1M one-decimal M ("1.2M").
+  Negatives preserve sign ("-50k"). Non-finite / NaN
+  defensively renders as "0".
+- Both component callers swapped to the shared helper.
+  Local inline `compact` functions deleted.
+- 5 unit tests cover the bucket matrix, sign
+  preservation, and the non-finite defence.
+
+**Why a defensive non-finite branch:** Prisma's `_sum`
+aggregate (used by M59) returns null when there are no
+matching rows; the page coalesces with `?? 0`, but if a
+future caller forgets the coalesce, `compactCount(null
++ undefined)` would render "NaN" — instead it renders
+"0".
+
+**Key files:** `lib/format.ts`, `components/runs/token-spend-badge.tsx`, `components/projects/project-token-stat.tsx`, `tests/lib/format.test.ts`
+
 ## V2-M59 — Project-level token aggregate stat
 
 **Goal:** The per-run `TokenSpendBadge` (M36) shows how
