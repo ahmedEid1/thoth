@@ -70,6 +70,25 @@ export function EditProjectDialog({ project }: { project: EditProject }) {
   }
 
   /**
+   * Wraps `setScope` to auto-populate providers when the user
+   * transitions to outbound/hybrid from a state with no providers
+   * selected. V1 projects (uploaded_only) have `searchProviders: []`
+   * stored, so a user flipping the scope radio sees empty checkboxes
+   * + a disabled Submit button — friction. Mirror the new-project
+   * dialog's default of `{openalex, arxiv}` for first-time outbound
+   * use.
+   *
+   * Only auto-populates from empty: doesn't trample a user's existing
+   * non-empty choice when toggling between outbound/hybrid.
+   */
+  function changeScope(next: SearchScope) {
+    setScope(next);
+    if (next !== "uploaded_only" && providers.size === 0) {
+      setProviders(new Set(["openalex", "arxiv"]));
+    }
+  }
+
+  /**
    * Restore every field to match the `project` prop. Called when the
    * user closes the dialog without saving so a reopen shows the
    * canonical row values, not the in-flight edits the user just
@@ -177,7 +196,7 @@ export function EditProjectDialog({ project }: { project: EditProject }) {
             <div className="space-y-1.5 text-sm">
               <label className="flex items-start gap-2">
                 <input type="radio" name="edit-scope" checked={scope === "uploaded_only"}
-                  onChange={() => setScope("uploaded_only")} className="mt-0.5" />
+                  onChange={() => changeScope("uploaded_only")} className="mt-0.5" />
                 <span>
                   <span className="font-medium">Uploaded PDFs only</span>
                   <span className="block text-xs text-muted-foreground">
@@ -187,7 +206,7 @@ export function EditProjectDialog({ project }: { project: EditProject }) {
               </label>
               <label className="flex items-start gap-2">
                 <input type="radio" name="edit-scope" checked={scope === "outbound"}
-                  onChange={() => setScope("outbound")} className="mt-0.5" />
+                  onChange={() => changeScope("outbound")} className="mt-0.5" />
                 <span>
                   <span className="font-medium">Outbound search</span>
                   <span className="block text-xs text-muted-foreground">
@@ -197,7 +216,7 @@ export function EditProjectDialog({ project }: { project: EditProject }) {
               </label>
               <label className="flex items-start gap-2">
                 <input type="radio" name="edit-scope" checked={scope === "hybrid"}
-                  onChange={() => setScope("hybrid")} className="mt-0.5" />
+                  onChange={() => changeScope("hybrid")} className="mt-0.5" />
                 <span>
                   <span className="font-medium">Hybrid</span>
                   <span className="block text-xs text-muted-foreground">

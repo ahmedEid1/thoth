@@ -146,6 +146,38 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M89 — EditProjectDialog auto-populates providers on first switch to outbound
+
+**Goal:** V1 projects (originally created as
+uploaded_only) have `searchProviders: []` stored. A
+user editing such a project and flipping the scope
+radio to "Outbound search" saw empty provider
+checkboxes + a disabled Save button until they
+clicked one. The new-project dialog uses
+`{openalex, arxiv}` as the first-time default; the
+edit dialog now matches.
+
+**What shipped:**
+
+- `changeScope(next)` wrapper around `setScope`. On
+  transitions to outbound/hybrid where providers is
+  empty, auto-populates `{openalex, arxiv}` — the
+  same default the new-project dialog applies. Only
+  fires when providers is empty so a user flipping
+  between outbound ↔ hybrid keeps their picks.
+- All three scope radios (uploaded_only, outbound,
+  hybrid) go through `changeScope`.
+
+**Why not also clear providers when switching to
+uploaded_only:** the server's M38 PATCH endpoint
+ignores `searchProviders` when scope is
+uploaded_only, so the user's selections are kept in
+state but effectively shelved — a quick toggle back
+to outbound finds the same providers checked. Clearing
+would be punishing the user for exploring.
+
+**Key files:** `components/projects/edit-project-dialog.tsx`
+
 ## V2-M88 — RunsBreakdown splits REJECTED into its own bucket
 
 **Goal:** Completes the M86 → M87 → M88 chain. M49's
