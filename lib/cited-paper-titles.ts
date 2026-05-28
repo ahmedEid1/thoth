@@ -8,9 +8,11 @@ import { extractPaperTitle } from "@/lib/paper-title";
  * can carry `citedPaperTitle` alongside the opaque `citedPaperId`.
  *
  * De-dups the input ids before querying. Returns a Map keyed by
- * CorpusItem id; the value is the extracted title or null when the
- * item has no usable heading (or doesn't exist — defensive against a
- * claim referencing a since-deleted corpus item).
+ * CorpusItem id; the value is the authoritative provider title
+ * (DiscoveredPaper.title) for outbound papers, else the title extracted
+ * from the OCR'd markdown, else null (no usable heading, or the item
+ * doesn't exist — defensive against a claim referencing a since-deleted
+ * corpus item).
  */
 export async function loadCitedPaperTitles(
   paperIds: string[],
@@ -19,7 +21,15 @@ export async function loadCitedPaperTitles(
   if (ids.length === 0) return new Map();
   const items = await db.corpusItem.findMany({
     where: { id: { in: ids } },
-    select: { id: true, parsedMarkdown: true },
+    select: {
+      id: true,
+      parsedMarkdown: true,
+      // Prefer the authoritative provider title for outbound papers (M118);
+      // fall back to OCR-heading extraction for uploaded PDFs (no join).
+      discoveredAs: { select: { title: true } },
+    },
   });
-  return new Map(items.map((i) => [i.id, extractPaperTitle(i.parsedMarkdown)]));
+  return new Map(
+    items.map((i) => [i.id, i.discoveredAs?.title ?? extractPaperTitle(i.parsedMarkdown)]),
+  );
 }

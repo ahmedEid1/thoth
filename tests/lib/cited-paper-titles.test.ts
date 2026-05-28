@@ -27,15 +27,32 @@ describe("loadCitedPaperTitles", () => {
     expect(map.get("p2")).toBe("Second Paper");
   });
 
+  it("prefers the provider title over the OCR heading for outbound papers (M118)", async () => {
+    vi.mocked(db.corpusItem.findMany).mockResolvedValue([
+      // Garbled OCR heading; the clean provider title must win.
+      { id: "p1", parsedMarkdown: "# G4rbl3d 0CR\n\nbody", discoveredAs: { title: "ReAct: Synergizing Reasoning and Acting" } },
+      // No heading at all, but a provider title exists → no more "Untitled".
+      { id: "p2", parsedMarkdown: "just prose, no heading", discoveredAs: { title: "Toolformer" } },
+    ] as never);
+
+    const map = await loadCitedPaperTitles(["p1", "p2"]);
+    expect(map.get("p1")).toBe("ReAct: Synergizing Reasoning and Acting");
+    expect(map.get("p2")).toBe("Toolformer");
+  });
+
   it("de-dups ids before querying", async () => {
     vi.mocked(db.corpusItem.findMany).mockResolvedValue([
-      { id: "p1", parsedMarkdown: "# Only Paper\n\nbody" },
+      { id: "p1", parsedMarkdown: "# Only Paper\n\nbody", discoveredAs: null },
     ] as never);
 
     await loadCitedPaperTitles(["p1", "p1", "p1"]);
     expect(db.corpusItem.findMany).toHaveBeenCalledWith({
       where: { id: { in: ["p1"] } },
-      select: { id: true, parsedMarkdown: true },
+      select: {
+        id: true,
+        parsedMarkdown: true,
+        discoveredAs: { select: { title: true } },
+      },
     });
   });
 

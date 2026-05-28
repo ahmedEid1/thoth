@@ -125,6 +125,26 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M119 — Provider title for the citation-audit path too (completes M118)
+
+**Goal:** M118 fixed two of the three title-resolution paths (references +
+`.bib`) but missed the third: `loadCitedPaperTitles` (`lib/cited-paper-titles.ts`),
+which feeds the MCP `get_citation_audit` tool, the `audit.json` route, and the
+citation-faithfulness widget on both the run-detail and showcase pages. It
+still resolved titles via `extractPaperTitle(parsedMarkdown)` only — so a real
+outbound paper with a missing/garbled OCR heading would show "Untitled paper"
+in the audit + widget even though the provider title was known. That left the
+surfaces inconsistent: references titled, audit untitled.
+
+**What shipped (`lib/cited-paper-titles.ts`):** the query now joins
+`discoveredAs.title` and resolves `discoveredAs?.title ?? extractPaperTitle(...)`
+— the same precedence M118 established. All title-resolution paths now agree.
+
+**Tests:** +1 — prefers the provider title over a garbled OCR heading and
+resolves a title when the markdown has no heading at all. 644 unit/integ green.
+
+**Key files:** `lib/cited-paper-titles.ts`, `tests/lib/cited-paper-titles.test.ts`
+
 ## V2-M118 — Prefer the provider title for outbound-run citations
 
 **Goal:** Generalize the M116 showcase fix to real outbound runs. The
