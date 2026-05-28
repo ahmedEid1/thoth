@@ -125,6 +125,39 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M52 — Discovery summary shows per-provider counts
+
+**Goal:** The discovery summary header showed total
+discovered papers + screening verdicts but not which
+*provider* surfaced them. When the provider-errors panel
+flagged a partial failure, the user couldn't tell whether
+that failure cost them many or few papers.
+
+**What shipped:**
+
+- New `perProviderCounts()` helper grouping the
+  `DiscoveredPaper[]` by provider, sorted by descending
+  count (tiebreak: alphabetical label). Returns
+  presentation-ready labels so unknown providers don't
+  render as their raw enum string.
+- `PROVIDER_LABEL` lookup lifted out of the existing inline
+  badge map so the helper can reuse it.
+- Summary header gains a third caption line:
+  `By provider: OpenAlex 12 · arXiv 5 · Exa 3`. Only
+  rendered when >1 provider returned papers (a single-
+  provider run doesn't need the breakdown).
+- 4 unit tests cover counting, descending-with-tiebreak
+  ordering, unknown-provider forward-compat, and the
+  empty-list base case.
+
+**Why this matters with the partial-failures panel:**
+when "arxiv: 429" appears in errors AND "by provider:
+OpenAlex 12 · arXiv 0" appears in the summary, the user
+sees immediately that the 429 cost the run all of its
+arXiv coverage. Pre-this they had to guess.
+
+**Key files:** `components/runs/discovery-summary.tsx`, `tests/components/discovery-summary-counts.test.ts`
+
 ## V2-M51 — Surface failed-step name on FAILED runs
 
 **Goal:** When a run failed, the run-detail header just
