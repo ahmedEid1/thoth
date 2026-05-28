@@ -69,6 +69,17 @@ export const ALLOWED_PROD_KEYS: readonly string[] = [
   // Clerk server-side (workers verify user/project ownership via @clerk/nextjs/server)
   "CLERK_SECRET_KEY",
   "CLERK_WEBHOOK_SIGNING_SECRET",
+
+  // V2 outbound search — the discoverer (lib/agent/nodes/discoverer.ts)
+  // and the runs-start guard (app/api/projects/[id]/runs/route.ts) read
+  // these. Without them in the sync allowlist, an armed deploy would
+  // leave the worker on lib/env.ts defaults — fine for the cost-cap
+  // knobs (400k / 50) but means SEARCH_DISABLED can't be toggled
+  // without manually editing Trigger.dev project settings.
+  "EXA_API_KEY",
+  "SEARCH_DISABLED",
+  "MAX_TOKENS_PER_RUN",
+  "MAX_DISCOVERED_PAPERS_PER_RUN",
 ] as const;
 
 export async function loadSyncEnv(): Promise<{ name: string; value: string }[]> {
