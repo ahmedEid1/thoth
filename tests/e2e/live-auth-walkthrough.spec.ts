@@ -244,17 +244,20 @@ test.describe("live authenticated walkthrough", () => {
     // router.push transition. 15s was tight; 30s gives margin without
     // making the test slow.
     await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("heading", { name: /discovery configuration/i })).toBeVisible();
-    // openalex + arxiv are listed in the provider row (M7 panel format).
-    await expect(page.getByText(/openalex.*arxiv|arxiv.*openalex/i).first()).toBeVisible();
-    // "Outbound search" appears as the Scope value.
-    await expect(page.getByText(/^outbound search$/i)).toBeVisible();
 
+    // Register for cleanup immediately after creation, before the panel
+    // assertions — a failing assertion otherwise orphans the project.
     const url = page.url();
     const match = url.match(/\/projects\/([^/]+)/);
     expect(match, `project url did not match /projects/<id>: ${url}`).not.toBeNull();
     const projectId = match![1]!;
     createdProjectIds.add(projectId);
+
+    await expect(page.getByRole("heading", { name: /discovery configuration/i })).toBeVisible();
+    // openalex + arxiv are listed in the provider row (M7 panel format).
+    await expect(page.getByText(/openalex.*arxiv|arxiv.*openalex/i).first()).toBeVisible();
+    // "Outbound search" appears as the Scope value.
+    await expect(page.getByText(/^outbound search$/i)).toBeVisible();
 
     // Clean up.
     const apiCtx = context.request;
@@ -303,6 +306,14 @@ test.describe("live authenticated walkthrough", () => {
     // making the test slow.
     await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 30_000 });
 
+    // Register for afterAll cleanup IMMEDIATELY after creation — before
+    // the assertions below — so a failing assertion doesn't orphan the
+    // project on prod. (A prior version registered after the assertions;
+    // when one of them failed, the project leaked.)
+    const url = page.url();
+    const projectId = url.match(/\/projects\/([^/]+)/)![1]!;
+    createdProjectIds.add(projectId);
+
     // Verify the project-page Discovery configuration panel renders the
     // configured values. Scope label is "Hybrid (uploaded + outbound)".
     await expect(page.getByRole("heading", { name: /discovery configuration/i })).toBeVisible();
@@ -313,10 +324,6 @@ test.describe("live authenticated walkthrough", () => {
     await expect(page.getByText(/2020.*2025/)).toBeVisible();
     // skipDiscoveryGate row.
     await expect(page.getByText(/discovery approval skipped/i)).toBeVisible();
-
-    const url = page.url();
-    const projectId = url.match(/\/projects\/([^/]+)/)![1]!;
-    createdProjectIds.add(projectId);
 
     // Round-trip check: hit GET /api/projects/[id] to confirm the
     // values landed in the DB (defends against a UI-only render that

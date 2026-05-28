@@ -146,6 +146,45 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M109 — e2e cleanup hardening: register-for-delete before assertions
+
+**Goal:** While fixing M108 I found a latent cleanup
+gap. The afterAll hook only DELETEs project ids in
+`createdProjectIds`. The outbound + hybrid create-tests
+registered the id *after* their panel assertions — so
+when M108's assertion failed mid-test, the project was
+created on prod but never registered → orphaned (×2
+with live retries).
+
+(Verified prod was actually clean — a `startsWith "E2E
+live walkthrough"` sweep found 0 orphans, so the failed
+run's projects were either auto-swept or didn't persist
+— but the latent leak is real and worth closing.)
+
+**What shipped:**
+
+- Outbound + hybrid create-tests now capture the URL +
+  `createdProjectIds.add(projectId)` IMMEDIATELY after
+  the project page loads (heading visible), BEFORE the
+  Discovery-config-panel assertions. Any later
+  assertion failure now still cleans up.
+- The first walkthrough test + the full-pipeline create
+  tests already registered promptly — verified, left
+  unchanged.
+- Re-ran the full auth-walkthrough locally (playwright
+  auto-starts the dev server, which runs the M108 fix):
+  7/7 green, confirming both the regression fix AND the
+  reordering.
+
+**Validation method note:** because the Vercel deploy
+was throttled (free-tier batching), the definitive
+confirmation ran against a LOCAL dev server built from
+the fixed code — equivalent to the deploy for test
+purposes (same prod Neon backend via `.env`). The live
+re-run will pass too once the deploy lands.
+
+**Key files:** `tests/e2e/live-auth-walkthrough.spec.ts`
+
 ## V2-M108 — Fix e2e regression: M82 sr-only label collided with config panel
 
 **Goal / the bug:** Running the live auth-walkthrough
