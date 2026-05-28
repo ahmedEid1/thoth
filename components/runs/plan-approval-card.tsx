@@ -117,7 +117,17 @@ export function PlanApprovalCard({
             onChange={(e) => setRejectReason(e.target.value)}
           />
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowReject(false)} disabled={isPending}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Clear the reason on Cancel so the user doesn't see
+                // their abandoned reject reason when re-opening the
+                // reject panel. Matches M70/M71's dialog-reset posture.
+                setShowReject(false);
+                setRejectReason("");
+              }}
+              disabled={isPending}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={reject} disabled={isPending || !rejectReason}>
