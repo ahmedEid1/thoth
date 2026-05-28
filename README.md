@@ -15,6 +15,7 @@
 [![Tests](https://img.shields.io/badge/tests-576%20passing-success?style=flat-square)](#)
 [![Status](https://img.shields.io/badge/status-v1.0.1-informational?style=flat-square)](#)
 [![Deploy cost](https://img.shields.io/badge/deploy-%240%2Fmo-brightgreen?style=flat-square)](#)
+[![SafeSkill 84/100](https://img.shields.io/badge/SafeSkill-84%2F100_Passes%20with%20Notes-yellow)](https://safeskill.dev/scan/ahmedeid1-thoth)
 
 `agentic-ai` · `langgraph` · `systematic-literature-review` · `mcp-server` · `oauth-2.1` · `next.js` · `prisma` · `trigger.dev` · `clerk` · `cite-check`
 
