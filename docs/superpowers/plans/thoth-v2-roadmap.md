@@ -146,6 +146,50 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M96 — Shared paper-title extraction (corpus list + .bib parity)
+
+**Goal:** Two surfaces extract a paper title from OCR'd
+markdown, and they'd diverged:
+  - `corpusItemLabel` (M47/M68) found the first H1/H2
+    heading + ran `sanitiseTitle` (strips markdown
+    emphasis, LaTeX, quotes).
+  - The `citations.bib` route did its OWN inline
+    extraction: `parsedMarkdown.split("\n").find(l =>
+    l.startsWith("# "))` — H1-only, NO sanitisation. A
+    paper titled `# **Attention Is All You Need**`
+    leaked `title = {\*\*Attention...\*\*}` into the
+    BibTeX (asterisks escaped as literal text by M95
+    but still wrong).
+
+**What shipped:**
+
+- New `lib/paper-title.ts` with two exports:
+    - `sanitiseTitle(raw)` — moved verbatim from
+      corpus-item-list.tsx.
+    - `extractPaperTitle(markdown)` — first H1/H2
+      heading, sanitised, or null. Matches H1 AND H2
+      (the .bib's old inline version missed H2-only
+      OCR output, e.g. papers whose title OCR'd as
+      `## Title`).
+- `corpusItemLabel` now calls `extractPaperTitle`, then
+  applies its display-specific 140-char truncation +
+  source fallback.
+- `citations.bib` route swapped to `extractPaperTitle`.
+  The .bib now gets the SAME clean title the UI shows.
+- corpus-item-label.test.ts updated to import
+  `sanitiseTitle` from the new path.
+- 8 new tests for `extractPaperTitle` (H1, H2,
+  blank-skip, LaTeX/emphasis, null/empty/undefined,
+  no-heading, empty-after-sanitise) + a reachability
+  smoke test for the moved `sanitiseTitle`.
+
+**Why this matters:** a researcher's exported .bib is
+the artefact they paste into a manuscript. A title
+with stray markdown is embarrassing + may need manual
+cleanup. Now it matches what they saw in the UI.
+
+**Key files:** `lib/paper-title.ts`, `components/corpus/corpus-item-list.tsx`, `app/api/runs/[id]/citations.bib/route.ts`, `tests/lib/paper-title.test.ts`, `tests/components/corpus-item-label.test.ts`
+
 ## V2-M95 — Fix BibTeX escape: %, $, &, # were unescaped
 
 **Goal:** Real correctness bug in `bibtexEscape`. The

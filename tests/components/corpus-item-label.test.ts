@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { corpusItemLabel, sanitiseTitle } from "@/components/corpus/corpus-item-list";
+import { corpusItemLabel } from "@/components/corpus/corpus-item-list";
+import { sanitiseTitle } from "@/lib/paper-title";
 
 describe("sanitiseTitle", () => {
   it("strips markdown emphasis markers but keeps wrapped text", () => {

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { buildBibtexFile, type BibTexPaper } from "@/lib/bibtex";
 import { buildRunFilename } from "@/lib/download-filename";
+import { extractPaperTitle } from "@/lib/paper-title";
 
 /**
  * Download a completed Run's included papers as a BibTeX file.
@@ -56,20 +57,18 @@ export async function GET(
   }
 
   const papers: BibTexPaper[] = run.includedPapers.map((ip, idx) => {
-    // Pull the first `# Heading` line from the OCR'd markdown as the
-    // title — same heuristic the discoverer's hybrid wrap uses.
-    const firstHeading = ip.corpusItem.parsedMarkdown
-      ?.split("\n")
-      .find((l) => l.startsWith("# "))
-      ?.replace(/^#\s*/, "")
-      .trim();
+    // Shared title extraction (lib/paper-title.ts) — same sanitisation
+    // the corpus-list UI uses, so a title like `# **Bold**` doesn't
+    // leak literal asterisks into the BibTeX. Handles H1 AND H2 (the
+    // old inline version only matched `# `, missing H2-only OCR output).
+    const title = extractPaperTitle(ip.corpusItem.parsedMarkdown);
     // Citation key matches the `paper_NNN` pattern the assessor uses
     // when writing claims to the draft. assessor.ts numbers them in
     // include-list order, so we match that here.
     const citationKey = `paper_${String(idx + 1).padStart(3, "0")}`;
     return {
       citationKey,
-      title: firstHeading ?? null,
+      title,
       externalDoi: ip.corpusItem.externalDoi,
       externalArxivId: ip.corpusItem.externalArxivId,
       source: ip.corpusItem.source,
