@@ -8,6 +8,7 @@ import { StartReviewButton } from "@/components/runs/start-review-button";
 import { RunStatusPill, type RunStatus } from "@/components/runs/run-status-pill";
 import { EditProjectDialog } from "@/components/projects/edit-project-dialog";
 import { DeleteRunButton } from "@/components/runs/delete-run-button";
+import { RefreshTickList } from "@/components/runs/refresh-tick";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -130,6 +131,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </p>
         ) : (
           <ul className="space-y-2">
+            <RefreshTickList runs={project.runs.map((r) => ({ status: r.status }))} />
             {project.runs.map((r) => (
               <li key={r.id} className="flex items-stretch gap-2">
                 <Link
