@@ -311,6 +311,41 @@ describe("run-review task", () => {
     expect(initialPayload.searchMaxHits).toBe(40);
   });
 
+  it("M113: terminates at the segment cap and ends FAILED (not REJECTED) on endless re-discovery", async () => {
+    // Pathological: every segment re-fires the discovery gate and the user
+    // keeps re-running (approved:false + editedQueries). The loop must
+    // terminate at MAX_SEGMENTS (16) rather than hang, and the run must end
+    // FAILED — NOT REJECTED, since the rejection branch deliberately excludes
+    // re-run decisions (they carry editedQueries). This guards both the cap
+    // bound and that exclusion interaction.
+    vi.mocked(db.project.findUnique).mockResolvedValue({
+      question: "Q?",
+      searchScope: "outbound",
+      searchProviders: ["openalex"],
+      searchMaxHits: null,
+      searchYearStart: null,
+      searchYearEnd: null,
+      skipDiscoveryGate: false,
+    } as never);
+    mocks.graphInvoke.mockResolvedValue({
+      __interrupt__: [{ value: { kind: "APPROVE_DISCOVERY", queries: ["q"], discoveredPapers: [] } }],
+    });
+    mocks.waitForToken.mockReturnValue({
+      unwrap: () => Promise.resolve({ approved: false, editedQueries: ["again"] }),
+    });
+
+    const mod = await import("@/trigger/run-review");
+    const task = mod.runReviewTask as unknown as { run: (p: { runId: string }) => Promise<unknown> };
+    const result = await task.run({ runId: "r1" });
+
+    // Bounded: ran exactly MAX_SEGMENTS times, didn't hang.
+    expect(mocks.graphInvoke).toHaveBeenCalledTimes(16);
+    // Ended FAILED, never mislabeled REJECTED.
+    expect(result).toMatchObject({ status: "FAILED" });
+    expect(runs.setRunStatus).toHaveBeenCalledWith(expect.objectContaining({ status: "FAILED" }));
+    expect(runs.setRunStatus).not.toHaveBeenCalledWith(expect.objectContaining({ status: "REJECTED" }));
+  });
+
   it("V2 — marks the run REJECTED when the discovery gate is rejected", async () => {
     mocks.graphInvoke
       .mockResolvedValueOnce({
