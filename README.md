@@ -61,6 +61,12 @@ server your AI assistant can call directly.
 <img src="docs/assets/media/03-evals.png" alt="Thoth's public eval dashboard — citation recall, precision, faithfulness, and coverage per golden question" width="760" />
 </div>
 
+**You approve every step** — three human-in-the-loop gates (review plan → review discovered papers → approve included papers); nothing runs unattended:
+
+<div align="center">
+<img src="docs/assets/media/hitl-gates.gif" alt="Thoth's three human-in-the-loop approval gates: review plan, review discovered papers, approve included papers" width="760" />
+</div>
+
 ## Key features
 
 - **🔎 `cite_check` — verifiable citations.** Every `[paper_id]` in the draft is

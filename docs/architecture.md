@@ -43,6 +43,15 @@ Reliability: a per-run token **cost cap** gates every node; HITL gates use a
 2-phase commit-then-deliver (Postgres advisory lock + Trigger.dev idempotent
 `wait.completeToken`) for exactly-once semantics; `MAX_SEGMENTS` bounds resumes.
 
+### The three human-in-the-loop gates
+
+The graph pauses at each gate and waits for your approval — nothing runs unattended.
+
+| 1. Review plan | 2. Review discovered papers | 3. Approve included papers |
+|---|---|---|
+| ![Plan approval gate](assets/media/gate-1-plan.png) | ![Discovery approval gate](assets/media/gate-2-discovery.png) | ![Papers approval gate](assets/media/gate-3-papers.png) |
+| The PICOC plan + inclusion/exclusion criteria, before any paper is fetched. | The generated queries + discovered papers (editable + re-runnable). | The screener's include set, with relevance scores + reasons. |
+
 ## Stack
 
 | Layer | Choice |
