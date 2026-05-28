@@ -8,6 +8,10 @@ export default async function DashboardPage() {
   const projects = await db.project.findMany({
     where: { ownerId: user.id },
     orderBy: { updatedAt: "desc" },
+    // Count corpus + runs per row so the list eyebrow can show
+    // "3 papers · 1 review" without an N+1 fan-out. _count is a
+    // single Postgres scalar subquery per relation in Prisma.
+    include: { _count: { select: { corpus: true, runs: true } } },
   });
 
   return (

@@ -9,7 +9,21 @@ type Project = {
   // V2 — optional so the showcase project (built from a v1-shape fixture)
   // and any other v1-style caller can omit them without lighting up "unknown".
   searchScope?: "uploaded_only" | "outbound" | "hybrid";
+  // Counts of related rows. Optional for the same showcase-fixture
+  // forward-compat reason — the editorial card just hides the line
+  // when counts aren't passed.
+  _count?: { corpus: number; runs: number };
 };
+
+function countsLine(counts: { corpus: number; runs: number }): string {
+  const c = counts.corpus;
+  const r = counts.runs;
+  const corpusLabel = c === 1 ? "1 paper" : `${c} papers`;
+  const runLabel = r === 1 ? "1 review" : `${r} reviews`;
+  return `${corpusLabel} · ${runLabel}`;
+}
+
+export { countsLine };
 
 /**
  * Editorial project list. Each row reads like a journal-article card:
@@ -72,6 +86,11 @@ export function ProjectList({ projects }: { projects: Project[] }) {
               <p className="text-sm text-[var(--thoth-stone)] mt-2 line-clamp-2 leading-relaxed">
                 {p.question}
               </p>
+              {p._count && (
+                <p className="text-xs text-[var(--thoth-stone)]/80 mt-2 tabular-nums">
+                  {countsLine(p._count)}
+                </p>
+              )}
             </div>
             <span
               aria-hidden="true"
