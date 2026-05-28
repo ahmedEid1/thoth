@@ -146,6 +146,36 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M88 — RunsBreakdown splits REJECTED into its own bucket
+
+**Goal:** Completes the M86 → M87 → M88 chain. M49's
+`bucketRuns` lumped REJECTED + FAILED into one "failed"
+bucket. After M86/M87 visually differentiated them, the
+project-page summary "1 completed · 2 failed" was
+ambiguous when the truth was "1 completed · 1 rejected ·
+1 failed".
+
+**What shipped:**
+
+- `bucketRuns` return shape extended with a `rejected`
+  field. FAILED + REJECTED are now distinct buckets.
+- Summary copy renders "X rejected" + "Y failed"
+  separately, hidden when zero.
+- 5 unit tests updated (mixed list, empty list, V2
+  active, REJECTED-as-its-own-bucket + unknown status
+  forward-compat).
+- Existing FAILED-only / REJECTED-only edge case is now
+  two parallel assertions for symmetry.
+
+**Surface coverage of the M86-M88 chain:**
+| Surface | REJECTED treatment |
+|---|---|
+| Run-detail panel (M86) | Neutral papyrus + "Rejected: " prefix |
+| Run status pill (M87) | `outline` variant (was `destructive`) |
+| Project page breakdown (M88) | Own bucket, separate from FAILED |
+
+**Key files:** `components/runs/runs-breakdown.tsx`, `tests/components/runs-breakdown.test.ts`
+
 ## V2-M87 — Status pill: REJECTED variant matches M86's "informational, not error"
 
 **Goal:** M86 styled the REJECTED *panel* in neutral
