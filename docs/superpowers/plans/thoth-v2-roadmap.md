@@ -3657,6 +3657,6 @@ Open V2-spec items that didn't ship in v2.0:
   corpus. What's still missing is the YAML inputs themselves — picking
   goldens with verifiable arXiv DOIs that aren't trivial to surface
   needs maintainer judgement. The framework is ready to consume them.
-- **Query-editing in the discovery_gate UI.** The first cut shows
-  queries read-only and lets the user reject + re-plan if they're wrong.
-  Edit-in-place is a v2.x UX upgrade.
+
+(Query-editing in the discovery_gate UI — once listed here — shipped in
+V2-M113: edit the queries in place + re-run the discoverer.)
