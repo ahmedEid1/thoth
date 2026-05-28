@@ -125,6 +125,32 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M46 — Dashboard project counts at a glance
+
+**Goal:** The dashboard project list showed title +
+question + updated-date but no signal of "how big" each
+project was. Users with several projects had to click into
+each to learn how many papers + runs were inside.
+
+**What shipped:**
+
+- Dashboard query adds `_count: { select: { corpus: true,
+  runs: true } }` — a single Postgres scalar subquery per
+  relation, no N+1 fan-out.
+- `ProjectList` row renders a small "3 papers · 1 review"
+  line below the research-question deck. Tabular-nums
+  alignment + stone color so it sits as a quiet third tier
+  under the title + question.
+- `countsLine` helper handles singular/plural for each
+  side independently — "1 paper · 5 reviews", "7 papers ·
+  1 review", "0 papers · 0 reviews". 3 unit tests cover
+  the matrix.
+- `_count` is optional on the type so the showcase project
+  built from a v1-shape fixture (and any other v1-style
+  caller) can omit it without rendering "undefined".
+
+**Key files:** `app/dashboard/page.tsx`, `components/projects/project-list.tsx`, `tests/components/project-list-counts.test.ts`
+
 ## V2-M45 — Corpus-item delete affordance
 
 **Goal:** Users could upload PDFs but couldn't delete
