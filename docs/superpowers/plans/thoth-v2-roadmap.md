@@ -146,6 +146,34 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M84 — compactCount escalates "1000k" → "1.0M"
+
+**Goal:** M60 introduced `compactCount(n)`. The 10k..1M
+tier used `(abs / 1000).toFixed(0)` — at 999,500 this
+produced `"1000k"`, an ugly outlier next to the
+neighboring "1.0M" rendering. M60's test even
+documented the surface as expected behaviour; this
+fixes that.
+
+**What shipped:**
+
+- `compactCount` adds a `abs >= 999_500` check inside
+  the 10k..1M branch that escalates to the M tier when
+  the would-be k-value rounds to 1000. The closed-form
+  threshold (999_500) matches what
+  `Math.round(abs/1000)` would produce without an
+  intermediate divide-then-round-then-compare.
+- Two existing tests updated: the "999_500 → 1000k"
+  expectation became a new "escalates to M-tier" test
+  covering both 999_500 and 999_999.
+
+**Why a hard threshold instead of dynamic rounding:**
+performance + clarity. The closed-form check is one
+comparison; the JSDoc explains the boundary so a
+future maintainer doesn't think "weird magic number".
+
+**Key files:** `lib/format.ts`, `tests/lib/format.test.ts`
+
 ## V2-M83 — Same a11y badge pattern on the run-detail header
 
 **Goal:** M82 cleaned the project headings'

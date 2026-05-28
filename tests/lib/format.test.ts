@@ -13,9 +13,13 @@ describe("compactCount", () => {
     expect(compactCount(10_000)).toBe("10k");
     expect(compactCount(121_463)).toBe("121k");
     expect(compactCount(999_499)).toBe("999k");
-    // 999_500 rounds to 1000k via toFixed(0) — that's the documented
-    // behaviour at the boundary; 1M kicks in at >=1_000_000.
-    expect(compactCount(999_500)).toBe("1000k");
+  });
+
+  it("escalates to M-tier when k-rounding would produce '1000k'", () => {
+    // 999_500 rounds to 1000k under toFixed(0). Escalate to "1.0M"
+    // instead — no surface in the app should ever render "1000k".
+    expect(compactCount(999_500)).toBe("1.0M");
+    expect(compactCount(999_999)).toBe("1.0M");
   });
 
   it("renders >=1M as 1-decimal M", () => {
