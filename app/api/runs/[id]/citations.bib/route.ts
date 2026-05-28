@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { buildBibtexFile, type BibTexPaper } from "@/lib/bibtex";
+import { buildRunFilename } from "@/lib/download-filename";
 
 /**
  * Download a completed Run's included papers as a BibTeX file.
@@ -30,7 +31,8 @@ export async function GET(
     select: {
       id: true,
       draft: true,
-      project: { select: { ownerId: true } },
+      createdAt: true,
+      project: { select: { ownerId: true, title: true } },
       includedPapers: {
         orderBy: { createdAt: "asc" },
         select: {
@@ -73,12 +75,18 @@ export async function GET(
   });
 
   const body = buildBibtexFile(papers);
+  const filename = buildRunFilename({
+    projectTitle: run.project.title,
+    runId: id,
+    startedAt: run.createdAt,
+    suffix: "citations.bib",
+  });
 
   return new NextResponse(body, {
     status: 200,
     headers: {
       "content-type": "application/x-bibtex; charset=utf-8",
-      "content-disposition": `attachment; filename="thoth-${id}-citations.bib"`,
+      "content-disposition": `attachment; filename="${filename}"`,
       "cache-control": "no-store",
     },
   });
