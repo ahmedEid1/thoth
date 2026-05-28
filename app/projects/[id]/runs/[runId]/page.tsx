@@ -112,7 +112,11 @@ export default async function RunPage({
   // Queries live in the APPROVE_DISCOVERY checkpoint's proposal — pull
   // them out so the discovery summary can render them even after the
   // checkpoint is decided. Same source of truth as get_search_queries.
-  const discoveryCheckpoint = run.checkpoints.find((c) => c.kind === "APPROVE_DISCOVERY");
+  // M113: a re-run creates a second APPROVE_DISCOVERY checkpoint; take the
+  // LATEST (checkpoints are ordered createdAt ASC) so the summary shows the
+  // edited queries that actually produced the current discovered set, not
+  // the superseded originals.
+  const discoveryCheckpoint = run.checkpoints.findLast((c) => c.kind === "APPROVE_DISCOVERY");
   const discoveryQueries: string[] = (() => {
     const proposal = discoveryCheckpoint?.proposal as { queries?: unknown } | null;
     if (proposal && Array.isArray(proposal.queries)) {

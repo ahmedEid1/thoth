@@ -273,6 +273,88 @@ describe("agent graph", () => {
     expect(mocks.assessor).toHaveBeenCalledTimes(1);
   });
 
+  it("V2 re-discovery (M113): editedQueries at discovery_gate routes back to the discoverer, then proceeds on approval", async () => {
+    mocks.planner.mockResolvedValue({
+      plan: {
+        picoc: { population: "p", intervention: "i", comparison: "c", outcome: "o", context: "ctx" },
+        subQuestions: ["q1"], inclusionCriteria: [], exclusionCriteria: [],
+      },
+    });
+    // Mirror the REAL discoverer: the rediscover branch returns
+    // `discoveryApproved: null` to clear the editedQueries signal. Without
+    // that clear the graph would re-route into the discoverer forever.
+    mocks.discoverer.mockImplementation(async (state: { discoveryApproved?: { editedQueries?: string[] } | null }) => ({
+      discoveryQueries: state.discoveryApproved?.editedQueries ?? ["q"],
+      discoveredPapers: [
+        {
+          id: "dp1", provider: "arxiv", externalId: "arxiv:2310.06770",
+          title: "T", abstract: "A", oaUrl: "https://arxiv.org/pdf/2310.06770",
+          accessStatus: "open", corpusItemId: null,
+        },
+      ],
+      ...(state.discoveryApproved?.editedQueries?.length ? { discoveryApproved: null } : {}),
+    }));
+    mocks.fetcher.mockResolvedValue({
+      discoveredPapers: [
+        {
+          id: "dp1", provider: "arxiv", externalId: "arxiv:2310.06770",
+          title: "T", abstract: "A", oaUrl: "https://arxiv.org/pdf/2310.06770",
+          accessStatus: "open", corpusItemId: "ci_dp1",
+        },
+      ],
+    });
+    mocks.screener.mockResolvedValue({
+      includedPapers: [{ corpusItemId: "ci_dp1", relevanceScore: 0.9, inclusionReason: "r" }],
+      screeningDecisions: [{ discoveredPaperId: "dp1", include: true, relevanceScore: 0.9, reason: "r" }],
+    });
+    mocks.assessor.mockResolvedValue({ claims: [{ includedPaperId: "ci_dp1", text: "X", category: "finding" }] });
+    mocks.drafter.mockResolvedValue({ draft: "Draft [ci_dp1]." });
+    mocks.critic.mockResolvedValue({
+      critique: {
+        decision: "approve",
+        overallScore: 4.5,
+        rubric: { faithfulness: 5, completeness: 4, citationQuality: 5, clarity: 4 },
+        actionableFeedback: "good",
+      },
+      critiqueIterations: 1,
+    });
+    mocks.citeCheck.mockResolvedValue({});
+
+    const { buildGraph } = await import("@/lib/agent/graph");
+    const { Command } = await import("@langchain/langgraph");
+    const graph = await buildGraph();
+    const config = { configurable: { thread_id: "r_redisc" } };
+
+    await graph.invoke(
+      {
+        ...initialState,
+        runId: "r_redisc",
+        searchScope: "outbound" as const,
+        searchProviders: ["arxiv" as const],
+        skipDiscoveryGate: false,
+      },
+      config,
+    );
+    // plan_gate → approve
+    await graph.invoke(new Command({ resume: { approved: true } }), config);
+    // discovery_gate #1 → user edits the queries and asks to re-run discovery.
+    // The decision carries approved:false (not a rejection) + editedQueries.
+    await graph.invoke(
+      new Command({ resume: { approved: false, editedQueries: ["a better query"] } }),
+      config,
+    );
+    // discovery_gate #2 (after re-discovery) → approve
+    await graph.invoke(new Command({ resume: { approved: true } }), config);
+    // papers_gate → approve
+    await graph.invoke(new Command({ resume: { approved: true } }), config);
+
+    // The cycle ran the discoverer a SECOND time, then proceeded normally.
+    expect(mocks.discoverer).toHaveBeenCalledTimes(2);
+    expect(mocks.fetcher).toHaveBeenCalledTimes(1);
+    expect(mocks.screener).toHaveBeenCalledTimes(1);
+    expect(mocks.assessor).toHaveBeenCalledTimes(1);
+  });
+
   it("V2 outbound: skipDiscoveryGate=true auto-approves and flows straight to fetcher", async () => {
     mocks.planner.mockResolvedValue({
       plan: {

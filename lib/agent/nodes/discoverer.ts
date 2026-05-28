@@ -56,20 +56,43 @@ export async function discovererNode(
   });
 
   try {
-    // 1. Generate queries via the LLM.
-    const { system, messages } = buildDiscoverQueriesRequest({
-      question: state.question,
-      plan: state.plan,
-    });
-    const { output, traceUrl, usage } = await runLLM({
-      name: "discoverer:queries",
-      tier: "smart",
-      maxTokens: 1024,
-      system,
-      messages,
-      schema: DiscoveryQueriesSchema,
-      metadata: { runId: state.runId, projectId: state.projectId, node: "discoverer" },
-    });
+    // 0. Re-discovery path (M113): if the user edited the queries at the
+    //    discovery gate and asked to re-run, use those verbatim, skip the
+    //    LLM call, and REPLACE the prior discovered set (delete the run's
+    //    existing DiscoveredPapers first). Safe at the gate: the fetcher /
+    //    screener haven't run yet, so no CorpusItem / ScreeningDecision
+    //    rows reference these papers.
+    const editedQueries = state.discoveryApproved?.editedQueries
+      ?.map((q) => (typeof q === "string" ? q.trim() : ""))
+      .filter((q) => q.length > 0);
+    const isRediscover = !!editedQueries && editedQueries.length > 0;
+
+    let queries: string[];
+    let traceUrl: string | undefined;
+    let usage = { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0 };
+
+    if (isRediscover) {
+      await db.discoveredPaper.deleteMany({ where: { runId: state.runId } });
+      queries = editedQueries;
+    } else {
+      // 1. Generate queries via the LLM.
+      const { system, messages } = buildDiscoverQueriesRequest({
+        question: state.question,
+        plan: state.plan,
+      });
+      const gen = await runLLM({
+        name: "discoverer:queries",
+        tier: "smart",
+        maxTokens: 1024,
+        system,
+        messages,
+        schema: DiscoveryQueriesSchema,
+        metadata: { runId: state.runId, projectId: state.projectId, node: "discoverer" },
+      });
+      queries = gen.output.queries;
+      traceUrl = gen.traceUrl;
+      usage = gen.usage;
+    }
 
     // 2. Fan out to providers. Per-provider errors are non-fatal — the
     //    dispatcher logs them and continues with whatever the survivors return.
@@ -80,7 +103,7 @@ export async function discovererNode(
     // Sequential fan-out across queries to respect per-provider rate budgets
     // (arXiv recommends 3s between calls). Within a single query, providers run
     // in parallel via dispatchSearch.
-    for (const query of output.queries) {
+    for (const query of queries) {
       const r = await dispatchSearch({
         query: { query, yearStart: undefined, yearEnd: undefined, limit: 25 },
         providers,
@@ -232,8 +255,14 @@ export async function discovererNode(
     });
 
     return {
-      discoveryQueries: output.queries,
+      discoveryQueries: queries,
       discoveredPapers: refs,
+      // On re-discovery, clear the consumed gate decision. The re-fired
+      // discovery_gate sets discoveryApproved fresh from the user's NEXT
+      // resume before routing, so this isn't required for correctness — but
+      // it keeps the persisted checkpoint from carrying a stale editedQueries
+      // signal that would be confusing on replay/inspection.
+      ...(isRediscover ? { discoveryApproved: null } : {}),
     };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);

@@ -37,12 +37,11 @@ const PROVIDER_BADGE: Record<string, string> = {
  *   - Approve as-is. Every hit passes through the fetcher → screener.
  *   - Drop individual hits via the per-row checkbox. Dropped hits are
  *     submitted as `keptExternalIds` so the agent only fetches the rest.
+ *   - Edit the queries + re-run discovery (M113). Posts the edited queries
+ *     as `editedQueries` with `approved:false`; the graph routes back to the
+ *     discoverer, which replaces the discovered set and re-fires this gate.
  *   - Reject the whole sweep with a reason — the run ends without burning
  *     OCR / screener LLM calls.
- *
- * Query editing is intentionally read-only in this first cut. The follow-up
- * UI (v2.x) will allow editing queries + re-running the discoverer; today
- * the user can reject + re-plan if the queries are wrong.
  */
 export function DiscoveryApprovalCard({ runId, checkpointId, queries, hits }: Props) {
   const router = useRouter();
@@ -51,6 +50,8 @@ export function DiscoveryApprovalCard({ runId, checkpointId, queries, hits }: Pr
   );
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editQueries, setEditQueries] = useState<string[]>(queries);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -108,6 +109,33 @@ export function DiscoveryApprovalCard({ runId, checkpointId, queries, hits }: Pr
     });
   }
 
+  function rerun() {
+    setError(null);
+    // Trim + drop blank rows here too (the discoverer does the same), so the
+    // disabled-button guard and what we POST agree.
+    const cleaned = editQueries.map((q) => q.trim()).filter((q) => q.length > 0);
+    if (cleaned.length === 0) {
+      setError("Add at least one search query to re-run discovery.");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        // Posts to the same approve endpoint; `approved:false` + editedQueries
+        // is the re-run signal (the route spreads body over {approved:true},
+        // so body wins). The graph routes back to the discoverer.
+        const res = await fetch(`/api/runs/${runId}/checkpoints/${checkpointId}/approve`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ approved: false, editedQueries: cleaned }),
+        });
+        if (!res.ok) { setError(await readError(res)); return; }
+        router.refresh();
+      } catch {
+        setError("Could not reach the server. Check your connection.");
+      }
+    });
+  }
+
   const openCount = hits.filter((h) => h.accessStatus === "open").length;
 
   return (
@@ -122,12 +150,92 @@ export function DiscoveryApprovalCard({ runId, checkpointId, queries, hits }: Pr
       </div>
 
       <section>
-        <h4 className="text-sm font-medium mb-2">Search queries</h4>
-        <ul className="text-xs space-y-1 list-disc pl-5 text-muted-foreground">
-          {queries.map((q, i) => (
-            <li key={i} className="font-mono">{q}</li>
-          ))}
-        </ul>
+        <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+          <h4 className="text-sm font-medium">Search queries</h4>
+          {!editing && !showReject && (
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                // Seed the editor with the current queries (or one blank row
+                // if the discoverer somehow returned none).
+                setEditQueries(queries.length > 0 ? queries : [""]);
+                setEditing(true);
+              }}
+              disabled={isPending}
+              className="text-xs text-[var(--thoth-blue)] hover:underline disabled:opacity-40 disabled:no-underline"
+            >
+              Edit &amp; re-run
+            </button>
+          )}
+        </div>
+        {editing ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Edit the queries, then re-run discovery. This replaces the current hits
+              with a fresh search — nothing has been fetched or screened yet.
+            </p>
+            <ul className="space-y-2">
+              {editQueries.map((q, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={q}
+                    onChange={(e) =>
+                      setEditQueries((qs) => qs.map((x, j) => (j === i ? e.target.value : x)))
+                    }
+                    className="flex-1 text-sm border rounded p-2 font-mono"
+                    placeholder="Search query"
+                    aria-label={`Query ${i + 1}`}
+                    disabled={isPending}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEditQueries((qs) => qs.filter((_, j) => j !== i))}
+                    disabled={isPending || editQueries.length === 1}
+                    className="text-muted-foreground hover:text-destructive disabled:opacity-30 text-lg leading-none px-2"
+                    aria-label={`Remove query ${i + 1}`}
+                    title="Remove this query"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => setEditQueries((qs) => [...qs, ""])}
+              disabled={isPending}
+              className="text-xs text-[var(--thoth-blue)] hover:underline disabled:opacity-40 disabled:no-underline"
+            >
+              + Add query
+            </button>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditing(false);
+                  setError(null);
+                }}
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={rerun}
+                disabled={isPending || editQueries.every((q) => q.trim().length === 0)}
+              >
+                {isPending ? "Re-running…" : "Re-run discovery"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <ul className="text-xs space-y-1 list-disc pl-5 text-muted-foreground">
+            {queries.map((q, i) => (
+              <li key={i} className="font-mono">{q}</li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section>
@@ -204,7 +312,7 @@ export function DiscoveryApprovalCard({ runId, checkpointId, queries, hits }: Pr
         </ul>
       </section>
 
-      {showReject ? (
+      {editing ? null : showReject ? (
         <div className="space-y-2">
           <textarea
             placeholder="Why are you rejecting this discovery set? (optional)"

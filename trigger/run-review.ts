@@ -122,12 +122,25 @@ export const runReviewTask = schemaTask({
 
       let payload: unknown = initial;
 
-      // Bound the loop — at most 6 segments (defensive vs infinite resume).
-      for (let segment = 0; segment < 6; segment++) {
-        await setRunStatus({
-          runId,
-          status: segmentStatus(segment, project.searchScope),
-        });
+      // Bound the loop defensively against an infinite resume. A base
+      // outbound run uses 4 segments (plan_gate, discovery_gate, papers_gate,
+      // then the assessor→…→END invoke); uploaded_only uses 3. Each M113
+      // re-discovery cycle the user triggers inserts ONE extra discovery_gate
+      // segment, so the old cap of 6 silently capped re-runs at 2 (a 3rd left
+      // the run paused → mis-reported FAILED). The cap can be generous because
+      // every segment BLOCKS on a 24h human wait token — there is no machine
+      // path that resumes without a deliberate human click, so this bounds
+      // human patience, not runaway cost. 16 ≈ a dozen re-discovery rounds.
+      const MAX_SEGMENTS = 16;
+      // Phase-based status (not segment-index based). Re-discovery inserts
+      // extra discovery_gate segments, so a raw `segment → status` mapping
+      // would drift (a re-run segment would display "FETCHING"). Instead we
+      // derive the status for the upcoming segment from the decision we just
+      // resumed past — see nextPhaseStatus below. The first segment is always
+      // planning.
+      let phaseStatus: RunPhaseStatus = "PLANNING";
+      for (let segment = 0; segment < MAX_SEGMENTS; segment++) {
+        await setRunStatus({ runId, status: phaseStatus });
         lastState = (await graph.invoke(payload as never, config)) as GraphResult;
 
         const interrupts = lastState.__interrupt__;
@@ -167,10 +180,18 @@ export const runReviewTask = schemaTask({
         // with that breaks the gate's expected shape — state.planApproved.approved
         // becomes undefined, routeAfterPlanGate returns END, graph skips retriever.
         const decision = await wait
-          .forToken<{ approved: boolean; rejectionReason?: string; editedPlan?: unknown; corpusItemIds?: string[] }>(token)
+          .forToken<{
+            approved: boolean;
+            rejectionReason?: string;
+            editedPlan?: unknown;
+            corpusItemIds?: string[];
+            editedQueries?: string[];
+          }>(token)
           .unwrap();
 
         payload = new Command({ resume: decision });
+        // Derive the next segment's status from the decision we just made.
+        phaseStatus = nextPhaseStatus(intr.kind, decision, project.searchScope);
       }
 
       // Persist claims and draft if the run reached the end
@@ -179,7 +200,7 @@ export const runReviewTask = schemaTask({
       const planApproved = lastState.planApproved;
       const papersApproved = lastState.papersApproved;
       const discoveryApproved = lastState.discoveryApproved as
-        | { approved: boolean; rejectionReason?: string }
+        | { approved: boolean; rejectionReason?: string; editedQueries?: string[] }
         | null
         | undefined;
 
@@ -192,8 +213,16 @@ export const runReviewTask = schemaTask({
       }
       // V2 — outbound discovery rejection. Without this branch, a rejected
       // discovery_gate fell through to the "no draft → FAILED" path below,
-      // mis-classifying user intent as agent failure.
-      if (discoveryApproved && !discoveryApproved.approved) {
+      // mis-classifying user intent as agent failure. A re-run decision
+      // (M113) also carries approved:false but with editedQueries — that is
+      // NOT a rejection, so exclude it (only reachable if the segment cap is
+      // exhausted mid-re-run; the run then falls through to FAILED, which is
+      // the honest outcome for "user kept re-running past the safety bound").
+      if (
+        discoveryApproved &&
+        !discoveryApproved.approved &&
+        !(discoveryApproved.editedQueries && discoveryApproved.editedQueries.length > 0)
+      ) {
         await setRunStatus({
           runId, status: "REJECTED",
           failureReason: discoveryApproved.rejectionReason ?? "Discovery rejected at HITL gate",
@@ -249,49 +278,34 @@ type RunPhaseStatus =
   | "FETCHING";
 
 /**
- * Map a graph-segment index to the user-facing Run.status that best describes
- * the work that segment is about to do. V2 outbound/hybrid runs go through a
- * different node chain than V1 uploaded_only runs, so the mapping branches
- * on searchScope. Without this branch, outbound runs displayed
- * Run.status="RETRIEVING" while the discoverer / fetcher / screener were
- * actually running — misleading on the dashboard + the run-detail status pill.
+ * Map the HITL decision we just resumed past to the user-facing Run.status
+ * that best describes the work the NEXT segment is about to do. Phase-based
+ * (not segment-index based) so it stays correct under M113 re-discovery,
+ * which inserts extra discovery_gate segments. V2 outbound/hybrid runs take a
+ * different node chain than V1 uploaded_only, so the plan-approval branch
+ * forks on searchScope. Without this, outbound runs displayed
+ * Run.status="RETRIEVING" while the discoverer / fetcher / screener ran.
  *
- * Segment ordering (with `setRunStatus` happening BEFORE the invoke):
- *   uploaded_only — 0:planner  1:retriever  2:assessor+drafter+critic+cite_check
- *   outbound      — 0:planner  1:discoverer  2:fetcher+screener  3:assessor+...
- *   hybrid        — same as outbound (graph routes hybrid through V2 chain)
+ *   APPROVE_PLAN      → uploaded_only: RETRIEVING; outbound/hybrid: DISCOVERING
+ *   APPROVE_DISCOVERY → re-run (editedQueries): DISCOVERING; else: FETCHING
+ *   APPROVE_PAPERS    → ASSESSING (assessor→drafter→critic→cite_check run as
+ *                       one uninterrupted segment)
  */
-function segmentStatus(
-  segment: number,
+function nextPhaseStatus(
+  kind: InterruptValue["kind"],
+  decision: { editedQueries?: string[] },
   searchScope: "uploaded_only" | "outbound" | "hybrid",
 ): RunPhaseStatus {
-  if (searchScope === "uploaded_only") {
-    switch (segment) {
-      case 0:
-        return "PLANNING";
-      case 1:
-        return "RETRIEVING";
-      case 2:
-        return "ASSESSING";
-      case 3:
-        return "DRAFTING";
-      default:
-        return "DRAFTING";
-    }
-  }
-  // outbound + hybrid take the V2 chain
-  switch (segment) {
-    case 0:
-      return "PLANNING";
-    case 1:
-      return "DISCOVERING";
-    case 2:
-      return "FETCHING";
-    case 3:
+  switch (kind) {
+    case "APPROVE_PLAN":
+      return searchScope === "uploaded_only" ? "RETRIEVING" : "DISCOVERING";
+    case "APPROVE_DISCOVERY":
+      // A re-run decision carries edited queries — the next segment re-runs
+      // the discoverer, not the fetcher.
+      return decision.editedQueries && decision.editedQueries.length > 0
+        ? "DISCOVERING"
+        : "FETCHING";
+    case "APPROVE_PAPERS":
       return "ASSESSING";
-    case 4:
-      return "DRAFTING";
-    default:
-      return "DRAFTING";
   }
 }

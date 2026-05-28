@@ -125,6 +125,65 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M113 — Discovery re-run: edit queries at the gate, re-run the discoverer
+
+**Goal:** Close the documented v2.x follow-up to the discovery gate. Until
+now the gate was approve-or-reject only: if the LLM-generated queries were
+off, the user's sole recourse was to reject the whole run and re-plan. The
+gate already showed the queries read-only with a comment promising "the
+follow-up UI (v2.x) will allow editing queries + re-running the discoverer."
+M113 ships that loop.
+
+**What shipped:**
+
+- **Graph** (`lib/agent/graph.ts`): `routeAfterDiscoveryGate` now returns
+  `"discoverer"` when the gate decision carries non-empty `editedQueries`
+  (checked FIRST — a re-run decision also carries `approved:false`, which
+  would otherwise read as a rejection). New `discovery_gate → discoverer`
+  conditional edge closes the cycle.
+- **Discoverer** (`lib/agent/nodes/discoverer.ts`): a re-discovery branch
+  uses the edited queries verbatim (trimmed, blank rows dropped), SKIPS the
+  LLM query-generation call, `deleteMany`s the run's prior DiscoveredPapers
+  (safe at the gate — the fetcher/screener haven't run, so no CorpusItem /
+  ScreeningDecision rows reference them), then re-searches. Clears the
+  consumed gate decision (hygiene, not correctness).
+- **UI** (`components/runs/discovery-approval-card.tsx`): an "Edit & re-run"
+  mode with per-query inputs, add/remove rows, and a "Re-run discovery"
+  button that POSTs `{approved:false, editedQueries}` to the existing
+  approve endpoint (the route spreads body over `{approved:true}`, so body
+  wins — no endpoint change needed).
+- **Trigger loop** (`trigger/run-review.ts`): the gate-agnostic segment loop
+  already re-fires the discovery_gate with a fresh token/checkpoint. Two
+  fixes for the cycle: (1) the `segment < 6` cap silently capped re-runs at
+  2 (a 3rd left the run paused → mis-reported FAILED); raised to 16 (safe —
+  every segment blocks on a 24h human token, so this bounds patience, not
+  cost). (2) The discovery-rejection branch now excludes a re-run decision
+  (`approved:false` + `editedQueries`) so it isn't mis-classified REJECTED.
+  Run-status display is now phase-based (not segment-index based) so a
+  re-run segment shows DISCOVERING, not a drifted FETCHING.
+- **Display** (`app/projects/[id]/runs/[runId]/page.tsx`): the discovery
+  summary's query source switched from `.find()` (oldest checkpoint) to
+  `.findLast()` (latest) so it shows the edited queries that produced the
+  current hit set — restoring consistency with the `get_search_queries` MCP
+  tool, which already ordered `createdAt desc`.
+
+**Tests:** graph re-discovery cycle (real graph, mocked nodes, MemorySaver —
+asserts the discoverer runs twice then proceeds); discoverer unit tests
+(edited-queries path skips LLM + deletes prior set + clears decision; all-
+blank edits fall back to LLM); trigger re-run test (two discovery
+checkpoints, DISCOVERING shown twice, run still COMPLETED not REJECTED).
+630 unit/integration green.
+
+**Why this matters:** the discovery gate is the highest-leverage HITL point
+in an outbound run — bad queries waste the entire fetch + screen + assess
+budget. Letting the user correct the queries in place (instead of rejecting
++ re-planning the whole run) is the difference between a usable gate and a
+ceremonial one.
+
+**Key files:** `lib/agent/graph.ts`, `lib/agent/nodes/discoverer.ts`,
+`components/runs/discovery-approval-card.tsx`, `trigger/run-review.ts`,
+`app/projects/[id]/runs/[runId]/page.tsx`
+
 ## V2-M61 — Corpus-list polling effect uses stable signature
 
 **Goal:** `CorpusItemList` polls every 2s while any item

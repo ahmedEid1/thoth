@@ -131,10 +131,10 @@ describe("run-review task", () => {
     );
   });
 
-  // V2 segmentStatus: outbound runs must show DISCOVERING / FETCHING /
-  // ASSESSING / DRAFTING in sequence, not the V1 RETRIEVING that was
-  // wrongly used through M21. Asserts the status transitions seen by the
-  // dashboard during an outbound run.
+  // V2 nextPhaseStatus: outbound runs must show DISCOVERING / FETCHING /
+  // ASSESSING in sequence, not the V1 RETRIEVING that was wrongly used
+  // through M21. Asserts the status transitions seen by the dashboard
+  // during an outbound run.
   it("V2 — uses V2 status enum values during outbound segments", async () => {
     vi.mocked(db.project.findUnique).mockResolvedValue({
       question: "Q?",
@@ -186,6 +186,70 @@ describe("run-review task", () => {
     expect(phaseStatuses).toContain("ASSESSING");
     // V1 RETRIEVING must NEVER appear on an outbound run.
     expect(phaseStatuses).not.toContain("RETRIEVING");
+  });
+
+  // M113 re-discovery: editing the queries at the discovery gate re-runs the
+  // discoverer. The trigger loop is gate-agnostic, so the re-fired
+  // discovery_gate gets its own checkpoint + token; the loop must continue
+  // (not bail) and the re-run segment must display DISCOVERING (not FETCHING).
+  it("V2 — re-discovery: a re-run decision drives a second discovery segment and the run still completes", async () => {
+    vi.mocked(db.project.findUnique).mockResolvedValue({
+      question: "Q?",
+      searchScope: "outbound",
+      searchProviders: ["openalex"],
+    } as never);
+
+    mocks.graphInvoke
+      // seg0: planner → plan_gate
+      .mockResolvedValueOnce({
+        __interrupt__: [{ value: { kind: "APPROVE_PLAN", plan: { picoc: {} } } }],
+      })
+      // seg1: discoverer → discovery_gate (#1)
+      .mockResolvedValueOnce({
+        __interrupt__: [{ value: { kind: "APPROVE_DISCOVERY", queries: ["q"], discoveredPapers: [] } }],
+      })
+      // seg2: re-discoverer → discovery_gate (#2, after the re-run)
+      .mockResolvedValueOnce({
+        __interrupt__: [{ value: { kind: "APPROVE_DISCOVERY", queries: ["better q"], discoveredPapers: [] } }],
+      })
+      // seg3: fetcher → screener → papers_gate
+      .mockResolvedValueOnce({
+        __interrupt__: [{ value: { kind: "APPROVE_PAPERS", includedPapers: [] } }],
+      })
+      // seg4: assessor → … → END
+      .mockResolvedValueOnce({ draft: "# Review", includedPapers: [], claims: [] });
+
+    mocks.waitForToken
+      .mockReturnValueOnce({ unwrap: () => Promise.resolve({ approved: true }) }) // plan
+      // discovery #1 — user edits queries + re-runs (approved:false + editedQueries)
+      .mockReturnValueOnce({ unwrap: () => Promise.resolve({ approved: false, editedQueries: ["better q"] }) })
+      .mockReturnValueOnce({ unwrap: () => Promise.resolve({ approved: true }) }) // discovery #2
+      .mockReturnValueOnce({ unwrap: () => Promise.resolve({ approved: true, corpusItemIds: [] }) }); // papers
+
+    const mod = await import("@/trigger/run-review");
+    const task = mod.runReviewTask as unknown as { run: (p: { runId: string }) => Promise<unknown> };
+    await task.run({ runId: "r1" });
+
+    // Two discovery checkpoints recorded (initial + re-run), plus plan + papers.
+    const discoveryCheckpoints = vi.mocked(runs.recordCheckpoint).mock.calls.filter(
+      (c) => (c[0] as { kind: string }).kind === "APPROVE_DISCOVERY",
+    );
+    expect(discoveryCheckpoints).toHaveLength(2);
+
+    const phaseStatuses = vi.mocked(runs.setRunStatus).mock.calls
+      .map((c) => (c[0] as { status: string }).status)
+      .filter((s) => !s.startsWith("AWAITING_") && s !== "COMPLETED" && s !== "FAILED");
+    // DISCOVERING appears twice (initial + re-run); the re-run segment is NOT
+    // mislabeled FETCHING.
+    expect(phaseStatuses.filter((s) => s === "DISCOVERING")).toHaveLength(2);
+
+    // The run completed normally — the re-run's approved:false decision was
+    // NOT misread as a rejection.
+    expect(runs.finishRun).toHaveBeenCalledWith(expect.objectContaining({ runId: "r1", draft: "# Review" }));
+    expect(runs.failRun).not.toHaveBeenCalled();
+    expect(runs.setRunStatus).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "REJECTED" }),
+    );
   });
 
   it("V2 — marks the run REJECTED when the discovery gate is rejected", async () => {

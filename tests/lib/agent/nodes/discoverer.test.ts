@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   assertWithinBudget: vi.fn(),
   createMany: vi.fn(),
   findMany: vi.fn(),
+  deleteMany: vi.fn(),
   corpusFindMany: vi.fn(),
   envMock: { MAX_DISCOVERED_PAPERS_PER_RUN: 50 } as {
     SEARCH_DISABLED?: string;
@@ -31,6 +32,7 @@ vi.mock("@/lib/db", () => ({
     discoveredPaper: {
       createMany: mocks.createMany,
       findMany: mocks.findMany,
+      deleteMany: mocks.deleteMany,
     },
     corpusItem: {
       findMany: mocks.corpusFindMany,
@@ -83,6 +85,7 @@ beforeEach(() => {
   mocks.finishStep.mockResolvedValue(undefined);
   mocks.assertWithinBudget.mockResolvedValue({ tokensUsed: 0, limit: 250000 });
   mocks.createMany.mockResolvedValue({ count: 0 });
+  mocks.deleteMany.mockResolvedValue({ count: 0 });
   mocks.corpusFindMany.mockResolvedValue([]);
   mocks.findMany.mockResolvedValue([]);
 });
@@ -467,5 +470,54 @@ describe("discovererNode", () => {
 
     const createCall = mocks.createMany.mock.calls[0]![0];
     expect(createCall.data).toHaveLength(2);
+  });
+
+  describe("re-discovery (M113): editedQueries from the gate", () => {
+    const rediscoverState: AgentState = {
+      ...baseState,
+      discoveryApproved: { approved: false, editedQueries: ["  refined query one  ", "refined query two"] },
+    };
+
+    it("uses the edited queries verbatim, skips the LLM, deletes the prior set, and clears the gate decision", async () => {
+      mocks.dispatchSearch.mockResolvedValue({ hits: [], errors: [] });
+      mocks.findMany.mockResolvedValue([]);
+
+      const result = await discovererNode(rediscoverState);
+
+      // No LLM call — the user supplied the queries.
+      expect(mocks.runLLM).not.toHaveBeenCalled();
+      // Prior DiscoveredPapers for THIS run were wiped before re-searching.
+      expect(mocks.deleteMany).toHaveBeenCalledWith({ where: { runId: "r1" } });
+      // Each (trimmed, non-empty) edited query was dispatched once.
+      expect(mocks.dispatchSearch).toHaveBeenCalledTimes(2);
+      expect(mocks.dispatchSearch).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ query: expect.objectContaining({ query: "refined query one" }) }),
+      );
+      // The gate decision is cleared so the re-fired gate routes on the next choice.
+      expect(result.discoveryApproved).toBeNull();
+      // Queries are trimmed before use (no whitespace-padded provider calls).
+      expect(result.discoveryQueries).toEqual(["refined query one", "refined query two"]);
+    });
+
+    it("falls back to LLM generation when editedQueries is present but all-blank", async () => {
+      mocks.runLLM.mockResolvedValue({
+        output: { queries: ["llm q"], rationale: "x." },
+        traceUrl: "",
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+      });
+      mocks.dispatchSearch.mockResolvedValue({ hits: [], errors: [] });
+      mocks.findMany.mockResolvedValue([]);
+
+      const result = await discovererNode({
+        ...baseState,
+        discoveryApproved: { approved: false, editedQueries: ["   ", ""] },
+      });
+
+      // Blank-only edits aren't a re-discovery request — normal LLM path runs.
+      expect(mocks.runLLM).toHaveBeenCalledTimes(1);
+      expect(mocks.deleteMany).not.toHaveBeenCalled();
+      expect(result.discoveryApproved).toBeUndefined();
+    });
   });
 });

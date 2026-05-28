@@ -101,7 +101,14 @@ function routeAfterPlanGate(
 
 function routeAfterDiscoveryGate(
   state: AgentState,
-): "fetcher" | typeof END {
+): "fetcher" | "discoverer" | typeof END {
+  // M113: re-discovery. When the user edits the queries at the gate and
+  // asks to re-run, the decision carries `editedQueries` (non-empty) —
+  // route back to the discoverer rather than proceeding/ending. Checked
+  // FIRST because a re-run decision also carries `approved: false`, which
+  // would otherwise be read as a rejection.
+  const editedQueries = state.discoveryApproved?.editedQueries;
+  if (editedQueries && editedQueries.length > 0) return "discoverer";
   return state.discoveryApproved?.approved ? "fetcher" : END;
 }
 
@@ -177,6 +184,11 @@ export async function buildGraph() {
     .addEdge("discoverer", "discovery_gate")
     .addConditionalEdges("discovery_gate", routeAfterDiscoveryGate, {
       fetcher: "fetcher",
+      // M113: re-discovery cycle — user edited queries at the gate and
+      // asked to re-run. The discoverer consumes editedQueries, replaces
+      // the discovered set, clears the signal, then discovery_gate fires
+      // again. Bounded by the trigger task's 6-segment resume cap.
+      discoverer: "discoverer",
       [END]: END,
     })
     .addEdge("fetcher", "screener")
