@@ -125,6 +125,35 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M53 — Empty-discovery guidance copy
+
+**Goal:** When the discoverer ran but every adapter
+returned zero papers, the DiscoverySummary header still
+just read "5 queries ran across the project's configured
+providers." with no follow-up — the user didn't know what
+to do next.
+
+**What shipped:**
+
+- Empty case now appends actionable guidance to the
+  header:
+    - If at least one provider errored: "All configured
+      providers errored — see the panel below." (points
+      at the existing partial-failures panel).
+    - Otherwise: "Try broadening the research question,
+      widening the year range, or adding more providers
+      via Edit project." (recommends the M39
+      EditProjectDialog as the action).
+- Branch fires only when `queries.length > 0` —
+  pre-discovery (no queries yet) shows nothing, since the
+  next refresh-tick will reveal the count.
+
+**Why no helper / no test:** the change is two ternaries
+in JSX — already-tested upstream signals (queries.length,
+providerErrors.length) drive the copy choice.
+
+**Key files:** `components/runs/discovery-summary.tsx`
+
 ## V2-M52 — Discovery summary shows per-provider counts
 
 **Goal:** The discovery summary header showed total

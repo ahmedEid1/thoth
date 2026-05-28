@@ -104,6 +104,15 @@ export function DiscoverySummary({ queries, discoveredPapers, providerErrors }: 
               {totalFetched > 0 && ` (${totalFetched} fetched + OCR'd)`}.
             </>
           )}
+          {totalDiscovered === 0 && queries.length > 0 && (
+            <>
+              {" "}
+              <strong>No papers found.</strong>{" "}
+              {providerErrors.length > 0
+                ? "All configured providers errored — see the panel below."
+                : "Try broadening the research question, widening the year range, or adding more providers via Edit project."}
+            </>
+          )}
         </p>
         {totalDiscovered > 0 && (
           <p className="text-xs text-muted-foreground mt-1">
