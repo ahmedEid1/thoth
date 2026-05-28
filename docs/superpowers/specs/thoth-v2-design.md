@@ -308,9 +308,12 @@ Shipped controls (status of each, as of v2.0):
   `HumanCheckpoint.proposal` JSON of the `APPROVE_DISCOVERY` row, and
   surfaced via the `get_search_queries` MCP tool and the run-detail
   page's Discovery summary panel. A worried researcher can re-derive
-  what was sent to whom. (Dedicated `SearchQuery` audit table from
-  the original spec was deferred — `HumanCheckpoint.proposal` is the
-  on-disk audit today.)
+  what was sent to whom. The dedicated `SearchQuery` audit table from
+  the original spec **shipped in M114** — one row per (query × provider)
+  call with the exact query, pre-dedup result count, and any error,
+  exposed via `get_search_queries`'s `callAudit`. The
+  `HumanCheckpoint.proposal` remains the human-approval record; the
+  table is the finer-grained per-call trail. ✓
 - `SEARCH_DISABLED` env-gated operator kill switch (mirrors
   `DEMO_DISABLED` from v1.0.0). The runs-start route fails fast with
   503 `search_disabled` when set, so outbound runs don't burn

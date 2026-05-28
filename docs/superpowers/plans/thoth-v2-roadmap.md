@@ -125,6 +125,61 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M114 — SearchQuery audit table (the last deferred V2-spec item)
+
+**Goal:** Ship the dedicated `SearchQuery` audit table the original V2 spec
+(§10) called for and that v2.0 deferred. Until now the on-disk audit was the
+`HumanCheckpoint.proposal` (the final query list a human approved) +
+`RunStep.failureReason` (per-provider errors only) — neither captures the
+per-call grain: which exact query went to which provider and how many
+results came back. M114 closes that gap.
+
+**What shipped:**
+
+- **Schema + migration** (`prisma/schema.prisma`,
+  `20260528000000_add_search_query_audit`): new `SearchQuery` model — one row
+  per (query × provider) call: `provider`, `query`, `resultCount` (pre-dedup),
+  `success`, `error`, `createdAt`, FK to `Run` (cascade). Purely additive;
+  validated against a throwaway Postgres (full migration chain applies clean,
+  table shape matches the model, zero drift introduced).
+- **Dispatcher** (`lib/search/dispatch.ts`): `DispatchResult` gains
+  `providerStats` — the PRE-dedup per-provider outcome. Necessary because the
+  merged `hits` collapse cross-provider duplicates onto one winning provider,
+  so they can't recover per-provider counts. Also upgraded rejection
+  attribution: a non-`SearchProviderError` throw is now attributed to the
+  provider by its `allSettled` index (was `"unknown"`) — accurate for the
+  audit + the existing error log.
+- **Discoverer** (`lib/agent/nodes/discoverer.ts`): accumulates an audit row
+  per `providerStats` entry across the query loop and writes them in one
+  `createMany`. NON-FATAL — the insert is try/caught and the iteration is
+  `?? []`-guarded, so an audit failure can never break a run. Re-discovery
+  (M113) appends rows rather than deleting them — the table is a complete
+  historical trail.
+- **MCP surface** (`lib/mcp/tools/get-search-queries.ts`): the
+  `get_search_queries` output gains `callAudit` — the chronological per-call
+  list. The spec named this tool the audit surface; it's now the queryable
+  realization.
+
+**Deliberately not done:** a run-detail UI table for the audit. The run
+summary already shows per-provider discovered-paper counts; a second
+(pre-dedup) table risks clutter, and the spec framed the value as
+queryability (MCP), not a new human surface.
+
+**Tests:** dispatch providerStats (fan-out counts, pre-dedup-not-undercounted,
+error attribution); discoverer audit-write (one row per query×provider) +
+non-fatal-on-insert-failure; MCP callAudit mapping + empty-for-legacy-runs.
+
+**Why this matters:** outbound mode sends the user's research question to
+third parties. A precise, queryable "what was sent to whom, and what came
+back" trail is a privacy/audit primitive, not a nicety — it lets a worried
+researcher (or an AI assistant via MCP) reconstruct the exact outbound
+footprint of a review. This was the last open item from the V2 spec.
+
+**Key files:** `prisma/schema.prisma`,
+`prisma/migrations/20260528000000_add_search_query_audit/`,
+`lib/search/dispatch.ts`, `lib/agent/nodes/discoverer.ts`,
+`lib/mcp/tools/get-search-queries.ts`
+
 ## V2-M113 — Discovery re-run: edit queries at the gate, re-run the discoverer
 
 **Goal:** Close the documented v2.x follow-up to the discovery gate. Until
@@ -3645,11 +3700,6 @@ way they inspect V1 reviews.
 
 Open V2-spec items that didn't ship in v2.0:
 
-- **SearchQuery audit table.** The spec called for a per-call audit row
-  capturing exact queries sent to each provider. The discoverer logs
-  query strings + per-provider failures to RunStep.failureReason today,
-  which is the on-disk audit. A dedicated table is easier to query but
-  not load-bearing yet.
 - **Real v2-mode goldens** + `EVAL_MODE=outbound` CI path. The metrics
   + schema field are wired *and* `lib/eval/headless-runner.ts` now
   accepts `searchScope` + `searchProviders` so callers can drive an

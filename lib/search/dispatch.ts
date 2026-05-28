@@ -20,10 +20,27 @@ const REGISTRY: Record<SearchProviderName, SearchProvider> = {
   exa: exaSearch,
 };
 
+/**
+ * Per-provider outcome for a single dispatched query. `resultCount` is the
+ * PRE-dedup hit count this provider returned — the merged `hits` below can't
+ * be used to recover it (cross-provider dedup collapses duplicates onto a
+ * single winning provider). The discoverer persists these as SearchQuery
+ * audit rows.
+ */
+export type ProviderCallStat = {
+  provider: SearchProviderName;
+  resultCount: number;
+  success: boolean;
+  /** Provider error message when success is false. */
+  error?: string;
+};
+
 export type DispatchResult = {
   hits: DiscoveredPaperSpec[];
   /** Per-provider error messages (empty array if every provider succeeded). */
   errors: Array<{ provider: SearchProviderName; message: string }>;
+  /** Per-provider call outcome (one entry per provider dispatched). */
+  providerStats: ProviderCallStat[];
 };
 
 /**
@@ -47,7 +64,7 @@ export async function dispatchSearch(args: {
   providers: SearchProviderName[];
 }): Promise<DispatchResult> {
   if (args.providers.length === 0) {
-    return { hits: [], errors: [] };
+    return { hits: [], errors: [], providerStats: [] };
   }
 
   const settled = await Promise.allSettled(
@@ -61,28 +78,37 @@ export async function dispatchSearch(args: {
   );
 
   const errors: DispatchResult["errors"] = [];
+  const providerStats: ProviderCallStat[] = [];
   const byId = new Map<string, DiscoveredPaperSpec>();
-  for (const result of settled) {
+  // settled[i] corresponds to args.providers[i] (Promise.allSettled preserves
+  // order) — use that to attribute a rejection to the right provider even when
+  // the thrown error isn't a SearchProviderError.
+  settled.forEach((result, i) => {
+    const name = args.providers[i]!;
     if (result.status === "rejected") {
       const reason = result.reason;
       const provider =
-        reason instanceof SearchProviderError
-          ? reason.provider
-          : ("unknown" as SearchProviderName);
+        reason instanceof SearchProviderError ? reason.provider : name;
       const message = reason instanceof Error ? reason.message : String(reason);
       errors.push({ provider, message });
-      continue;
+      providerStats.push({ provider, resultCount: 0, success: false, error: message });
+      return;
     }
+    providerStats.push({
+      provider: name,
+      resultCount: result.value.hits.length,
+      success: true,
+    });
     for (const hit of result.value.hits) {
       const existing = byId.get(hit.externalId);
       if (!existing || hit.initialScore > existing.initialScore) {
         byId.set(hit.externalId, hit);
       }
     }
-  }
+  });
 
   const hits = Array.from(byId.values()).sort(
     (a, b) => b.initialScore - a.initialScore,
   );
-  return { hits, errors };
+  return { hits, errors, providerStats };
 }

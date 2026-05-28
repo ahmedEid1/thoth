@@ -173,9 +173,13 @@ owned by you.
 
 For outbound/hybrid v2 reviews, returns the natural-language search
 queries the discoverer LLM generated from the research question, the
-provider set the run targeted, and any per-provider error messages
+provider set the run targeted, any per-provider error messages
 (e.g. "exa: missing API key" when Exa was selected without
-`EXA_API_KEY`).
+`EXA_API_KEY`), and a per-call `callAudit` — one entry for every
+individual provider call (query × provider) with its pre-dedup result
+count and any error. The audit is chronological, so a re-run discovery
+shows both sweeps; it's empty for `uploaded_only` runs and for runs that
+predate the audit table.
 
 Returns empty `queries` with `searchScope: "uploaded_only"` when
 called on a v1 review.
@@ -189,6 +193,8 @@ called on a v1 review.
 ```json
 {
   "reviewId": "string",
+  "projectTitle": "string",
+  "reviewQuestion": "string",
   "searchScope": "uploaded_only | outbound | hybrid",
   "searchProviders": "string[] (provider names enabled for the run)",
   "queries": "string[] (LLM-generated search queries)",
@@ -196,6 +202,15 @@ called on a v1 review.
     {
       "nodeName": "discoverer",
       "failureReason": "string (e.g. 'partial: exa: missing API key')"
+    }
+  ],
+  "callAudit": [
+    {
+      "provider": "string (openalex | arxiv | exa)",
+      "query": "string (exact query sent to this provider)",
+      "resultCount": "number (pre-dedup hits returned)",
+      "success": "boolean",
+      "error": "string | null"
     }
   ]
 }

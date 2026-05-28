@@ -5,6 +5,7 @@ vi.mock("@/lib/db", () => ({
     run: { findFirst: vi.fn() },
     humanCheckpoint: { findFirst: vi.fn() },
     runStep: { findMany: vi.fn() },
+    searchQuery: { findMany: vi.fn() },
   },
 }));
 
@@ -12,7 +13,11 @@ import { db } from "@/lib/db";
 import { getSearchQueries } from "@/lib/mcp/tools/get-search-queries";
 import { NotFoundError } from "@/lib/mcp/handler";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // Default: no audit rows. Tests that care override this.
+  vi.mocked(db.searchQuery.findMany).mockResolvedValue([] as never);
+});
 
 describe("getSearchQueries", () => {
   it("returns the discoverer's queries + provider set + provider errors", async () => {
@@ -29,6 +34,10 @@ describe("getSearchQueries", () => {
     } as never);
     vi.mocked(db.runStep.findMany).mockResolvedValue([
       { nodeName: "discoverer", failureReason: "partial: exa: missing API key" },
+    ] as never);
+    vi.mocked(db.searchQuery.findMany).mockResolvedValue([
+      { provider: "openalex", query: "chain of thought prompting", resultCount: 12, success: true, error: null },
+      { provider: "arxiv", query: "chain of thought prompting", resultCount: 0, success: false, error: "503" },
     ] as never);
 
     const res = await getSearchQueries(
@@ -48,7 +57,31 @@ describe("getSearchQueries", () => {
       providerErrors: [
         { nodeName: "discoverer", failureReason: "partial: exa: missing API key" },
       ],
+      callAudit: [
+        { provider: "openalex", query: "chain of thought prompting", resultCount: 12, success: true, error: null },
+        { provider: "arxiv", query: "chain of thought prompting", resultCount: 0, success: false, error: "503" },
+      ],
     });
+  });
+
+  it("returns an empty callAudit for runs that predate the SearchQuery table", async () => {
+    vi.mocked(db.run.findFirst).mockResolvedValue({
+      id: "r_old",
+      question: "q",
+      project: { title: "Old Project", searchScope: "outbound", searchProviders: ["openalex"] },
+    } as never);
+    vi.mocked(db.humanCheckpoint.findFirst).mockResolvedValue({
+      proposal: { queries: ["q1"] },
+    } as never);
+    vi.mocked(db.runStep.findMany).mockResolvedValue([] as never);
+    // searchQuery.findMany defaults to [] (no audit rows).
+
+    const res = await getSearchQueries(
+      { reviewId: "r_old" },
+      { userId: "u1", clerkId: "c1" },
+    );
+
+    expect(res.callAudit).toEqual([]);
   });
 
   it("returns empty queries + empty errors for uploaded_only runs", async () => {
@@ -116,5 +149,6 @@ describe("getSearchQueries", () => {
     )).rejects.toBeInstanceOf(NotFoundError);
     expect(db.humanCheckpoint.findFirst).not.toHaveBeenCalled();
     expect(db.runStep.findMany).not.toHaveBeenCalled();
+    expect(db.searchQuery.findMany).not.toHaveBeenCalled();
   });
 });

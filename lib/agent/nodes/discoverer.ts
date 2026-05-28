@@ -99,6 +99,18 @@ export async function discovererNode(
     const providers = state.searchProviders as SearchProviderName[];
     const allHits: Array<Awaited<ReturnType<typeof dispatchSearch>>["hits"][number]> = [];
     const allErrors: Array<{ provider: SearchProviderName; message: string }> = [];
+    // Per-(query, provider) audit rows — the dedicated SearchQuery table the
+    // V2 spec §10 called for. Captures exactly what was sent to whom +
+    // how many results came back, finer-grained than the checkpoint proposal
+    // (final query list) or RunStep.failureReason (errors only).
+    const searchAuditRows: Array<{
+      runId: string;
+      provider: string;
+      query: string;
+      resultCount: number;
+      success: boolean;
+      error: string | null;
+    }> = [];
 
     // Sequential fan-out across queries to respect per-provider rate budgets
     // (arXiv recommends 3s between calls). Within a single query, providers run
@@ -110,6 +122,29 @@ export async function discovererNode(
       });
       allHits.push(...r.hits);
       allErrors.push(...r.errors);
+      // `?? []` is a safety net: audit logging is non-essential, so a missing
+      // providerStats (e.g. a future dispatchSearch variant) must degrade to
+      // "no audit" rather than throw out of the query loop and fail the run.
+      for (const stat of r.providerStats ?? []) {
+        searchAuditRows.push({
+          runId: state.runId,
+          provider: stat.provider,
+          query,
+          resultCount: stat.resultCount,
+          success: stat.success,
+          error: stat.error ?? null,
+        });
+      }
+    }
+
+    // Persist the audit rows — non-fatal. A failed audit insert must never
+    // break a run, so swallow + log rather than throw.
+    if (searchAuditRows.length > 0) {
+      try {
+        await db.searchQuery.createMany({ data: searchAuditRows });
+      } catch (auditErr) {
+        console.error("discoverer: SearchQuery audit insert failed (non-fatal)", auditErr);
+      }
     }
 
     // 3. Deduplicate across queries (same externalId can recur across queries

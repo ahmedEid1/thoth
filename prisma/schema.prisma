@@ -167,6 +167,7 @@ model Run {
   // discoverer + screener nodes when the project's searchScope is outbound/hybrid.
   discoveredPapers   DiscoveredPaper[]
   screeningDecisions ScreeningDecision[]
+  searchQueries      SearchQuery[]
 
   @@index([projectId])
   @@index([status])
@@ -299,6 +300,29 @@ model ScreeningDecision {
   createdAt         DateTime        @default(now())
 
   @@index([runId])
+}
+
+/// V2 — per-(query, provider) outbound-search audit row. The original spec
+/// (§10) called for a dedicated table capturing exactly what was sent to whom.
+/// Until now the HumanCheckpoint.proposal (final query list) +
+/// RunStep.failureReason (errors only) were the on-disk audit; this captures
+/// the finer grain the spec asked for: every individual provider call the
+/// discoverer made, with the exact query string, the pre-dedup result count,
+/// and any error. Written non-fatally by the discoverer — audit logging must
+/// never break a run.
+model SearchQuery {
+  id          String   @id @default(cuid())
+  runId       String
+  run         Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  provider    String // "openalex" | "arxiv" | "exa"
+  query       String   @db.Text // exact query string sent to the provider
+  resultCount Int // hits the provider returned for this query (pre-dedup)
+  success     Boolean // false when the provider call errored
+  error       String?  @db.Text // provider error message when success=false
+  createdAt   DateTime @default(now())
+
+  @@index([runId])
+  @@index([runId, provider])
 }
 
 model EvalRun {

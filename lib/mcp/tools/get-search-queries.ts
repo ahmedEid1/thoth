@@ -20,6 +20,18 @@ export const getSearchQueriesOutput = z.object({
     nodeName: z.string(),
     failureReason: z.string(),
   })),
+  // Per-(query, provider) call audit — the dedicated SearchQuery table the
+  // V2 spec §10 asked for. One entry per provider call the discoverer made,
+  // in chronological order (re-discovery runs append, so a re-run shows both
+  // sweeps). Empty for uploaded_only runs and for runs that predate the
+  // audit table.
+  callAudit: z.array(z.object({
+    provider: z.string(),
+    query: z.string(),
+    resultCount: z.number(),
+    success: z.boolean(),
+    error: z.string().nullable(),
+  })),
 });
 
 /**
@@ -29,6 +41,10 @@ export const getSearchQueriesOutput = z.object({
  * emits a discovery_gate interrupt. Returns an empty queries list for
  * uploaded_only runs (with searchScope='uploaded_only' so the caller can
  * tell the difference from "discoverer hasn't run yet").
+ *
+ * `callAudit` adds the finer-grained SearchQuery audit: every individual
+ * provider call (query × provider) with its pre-dedup result count + any
+ * error — exactly what was sent to whom, per the V2 spec §10.
  */
 export async function getSearchQueries(
   input: z.infer<typeof getSearchQueriesInput>,
@@ -65,6 +81,12 @@ export async function getSearchQueries(
     orderBy: { startedAt: "asc" },
   });
 
+  const auditRows = await db.searchQuery.findMany({
+    where: { runId: input.reviewId },
+    orderBy: { createdAt: "asc" },
+    select: { provider: true, query: true, resultCount: true, success: true, error: true },
+  });
+
   return {
     reviewId: run.id,
     projectTitle: run.project.title,
@@ -75,6 +97,13 @@ export async function getSearchQueries(
     providerErrors: errSteps.map((s) => ({
       nodeName: s.nodeName,
       failureReason: s.failureReason as string,
+    })),
+    callAudit: auditRows.map((a) => ({
+      provider: a.provider,
+      query: a.query,
+      resultCount: a.resultCount,
+      success: a.success,
+      error: a.error,
     })),
   };
 }

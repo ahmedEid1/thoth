@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createMany: vi.fn(),
   findMany: vi.fn(),
   deleteMany: vi.fn(),
+  searchQueryCreateMany: vi.fn(),
   corpusFindMany: vi.fn(),
   envMock: { MAX_DISCOVERED_PAPERS_PER_RUN: 50 } as {
     SEARCH_DISABLED?: string;
@@ -33,6 +34,9 @@ vi.mock("@/lib/db", () => ({
       createMany: mocks.createMany,
       findMany: mocks.findMany,
       deleteMany: mocks.deleteMany,
+    },
+    searchQuery: {
+      createMany: mocks.searchQueryCreateMany,
     },
     corpusItem: {
       findMany: mocks.corpusFindMany,
@@ -86,6 +90,7 @@ beforeEach(() => {
   mocks.assertWithinBudget.mockResolvedValue({ tokensUsed: 0, limit: 250000 });
   mocks.createMany.mockResolvedValue({ count: 0 });
   mocks.deleteMany.mockResolvedValue({ count: 0 });
+  mocks.searchQueryCreateMany.mockResolvedValue({ count: 0 });
   mocks.corpusFindMany.mockResolvedValue([]);
   mocks.findMany.mockResolvedValue([]);
 });
@@ -470,6 +475,76 @@ describe("discovererNode", () => {
 
     const createCall = mocks.createMany.mock.calls[0]![0];
     expect(createCall.data).toHaveLength(2);
+  });
+
+  describe("SearchQuery audit (per query × provider call)", () => {
+    it("writes one audit row per (query, provider) with result counts + errors", async () => {
+      mocks.runLLM.mockResolvedValue({
+        output: { queries: ["q1", "q2"], rationale: "x." },
+        traceUrl: "",
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+      });
+      mocks.dispatchSearch
+        .mockResolvedValueOnce({
+          hits: [],
+          errors: [{ provider: "arxiv", message: "503" }],
+          providerStats: [
+            { provider: "openalex", resultCount: 2, success: true },
+            { provider: "arxiv", resultCount: 0, success: false, error: "503" },
+          ],
+        })
+        .mockResolvedValueOnce({
+          hits: [],
+          errors: [],
+          providerStats: [
+            { provider: "openalex", resultCount: 1, success: true },
+            { provider: "arxiv", resultCount: 0, success: true },
+          ],
+        });
+      mocks.findMany.mockResolvedValue([]);
+
+      await discovererNode(baseState);
+
+      expect(mocks.searchQueryCreateMany).toHaveBeenCalledTimes(1);
+      const rows = mocks.searchQueryCreateMany.mock.calls[0]![0].data;
+      expect(rows).toHaveLength(4); // 2 queries × 2 providers
+      expect(rows).toContainEqual(
+        expect.objectContaining({
+          runId: "r1", provider: "openalex", query: "q1", resultCount: 2, success: true, error: null,
+        }),
+      );
+      expect(rows).toContainEqual(
+        expect.objectContaining({
+          runId: "r1", provider: "arxiv", query: "q1", resultCount: 0, success: false, error: "503",
+        }),
+      );
+      expect(rows).toContainEqual(
+        expect.objectContaining({ provider: "openalex", query: "q2", resultCount: 1, success: true }),
+      );
+    });
+
+    it("does NOT fail the run when the audit insert throws (non-fatal)", async () => {
+      mocks.runLLM.mockResolvedValue({
+        output: { queries: ["q1"], rationale: "x." },
+        traceUrl: "",
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+      });
+      mocks.dispatchSearch.mockResolvedValue({
+        hits: [],
+        errors: [],
+        providerStats: [{ provider: "openalex", resultCount: 0, success: true }],
+      });
+      mocks.findMany.mockResolvedValue([]);
+      mocks.searchQueryCreateMany.mockRejectedValue(new Error("audit DB down"));
+
+      // The audit error is swallowed — the node resolves normally.
+      await expect(discovererNode(baseState)).resolves.toBeDefined();
+      expect(mocks.searchQueryCreateMany).toHaveBeenCalled();
+      // The outer step did NOT fail with the audit error.
+      expect(mocks.finishStep).not.toHaveBeenCalledWith(
+        expect.objectContaining({ failureReason: expect.stringContaining("audit DB down") }),
+      );
+    });
   });
 
   describe("re-discovery (M113): editedQueries from the gate", () => {
