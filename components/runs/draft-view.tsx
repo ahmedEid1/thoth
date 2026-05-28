@@ -24,13 +24,22 @@ export function DraftView({ draft, runId }: { draft: string; runId?: string }) {
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="eyebrow text-[var(--thoth-stone)]">Draft review</h3>
         {runId && (
-          <a
-            href={`/api/runs/${runId}/draft.md`}
-            download={`thoth-${runId}.md`}
-            className="text-xs text-[var(--thoth-stone)] hover:text-[var(--thoth-blue)] underline-offset-4 hover:underline transition-colors"
-          >
-            Download .md
-          </a>
+          <div className="flex items-baseline gap-3">
+            <a
+              href={`/api/runs/${runId}/draft.md`}
+              download={`thoth-${runId}.md`}
+              className="text-xs text-[var(--thoth-stone)] hover:text-[var(--thoth-blue)] underline-offset-4 hover:underline transition-colors"
+            >
+              Download .md
+            </a>
+            <a
+              href={`/api/runs/${runId}/citations.bib`}
+              download={`thoth-${runId}-citations.bib`}
+              className="text-xs text-[var(--thoth-stone)] hover:text-[var(--thoth-blue)] underline-offset-4 hover:underline transition-colors"
+            >
+              Download .bib
+            </a>
+          </div>
         )}
       </div>
       <div className="text-[var(--thoth-blue-ink)] leading-relaxed text-sm">
