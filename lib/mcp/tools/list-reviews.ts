@@ -11,7 +11,7 @@ export const listReviewsOutput = z.object({
     projectId: z.string(),
     projectName: z.string(),
     researchQuestion: z.string(),
-    status: z.string(),     // RunStatus enum — kept as string for forward-compat as Thoth adds new states (current: PENDING|PLANNING|AWAITING_PLAN_APPROVAL|RETRIEVING|AWAITING_PAPERS_APPROVAL|ASSESSING|DRAFTING|COMPLETED|REJECTED|FAILED)
+    status: z.string(),     // RunStatus enum — kept as string for forward-compat as Thoth adds new states. V1: PENDING|PLANNING|AWAITING_PLAN_APPROVAL|RETRIEVING|AWAITING_PAPERS_APPROVAL|ASSESSING|DRAFTING|COMPLETED|REJECTED|FAILED. V2 outbound: DISCOVERING|AWAITING_DISCOVERY_APPROVAL|FETCHING|SCREENING.
     createdAt: z.string(),
     completedAt: z.string().nullable(),
     critiqueScore: z.number().nullable(),

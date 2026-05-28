@@ -9,6 +9,10 @@ export const getReviewDraftInput = z.object({
 
 export const getReviewDraftOutput = z.object({
   reviewId: z.string(),
+  // M78: project title joined so an AI assistant has the human-readable
+  // project name without a second lookup. Mirrors M77's enrichment of
+  // get_citation_audit + the M75 enrichment of the HTTP audit.json.
+  projectTitle: z.string(),
   researchQuestion: z.string(),
   status: z.string(),
   draftMarkdown: z.string(),
@@ -27,7 +31,7 @@ export async function getReviewDraft(
     select: {
       id: true, question: true, status: true, draft: true,
       critiqueScore: true, faithfulnessScore: true, completedAt: true,
-      project: { select: { ownerId: true } },
+      project: { select: { ownerId: true, title: true } },
     },
   });
 
@@ -42,6 +46,7 @@ export async function getReviewDraft(
 
   return {
     reviewId: run.id,
+    projectTitle: run.project.title,
     researchQuestion: run.question,
     status: run.status,
     draftMarkdown: run.draft,

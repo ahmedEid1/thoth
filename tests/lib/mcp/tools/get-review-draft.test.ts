@@ -20,7 +20,7 @@ describe("getReviewDraft", () => {
       draft: "## Review\n\nIntroduction with [paper_1].",
       critiqueScore: 0.9, faithfulnessScore: 0.88,
       completedAt: new Date("2026-05-24T12:00:00Z"),
-      project: { ownerId: "u1" },
+      project: { ownerId: "u1", title: "GAT Review" },
     } as never);
     vi.mocked(db.runStep.count).mockResolvedValue(2 as never);
 
@@ -34,6 +34,9 @@ describe("getReviewDraft", () => {
     }));
     expect(res).toEqual({
       reviewId: "r1",
+      // M78: projectTitle joined so AI assistants have the human-readable
+      // project name without a second lookup.
+      projectTitle: "GAT Review",
       researchQuestion: "q",
       status: "COMPLETED",
       draftMarkdown: "## Review\n\nIntroduction with [paper_1].",

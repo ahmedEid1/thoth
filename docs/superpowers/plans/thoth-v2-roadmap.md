@@ -146,6 +146,40 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M78 — MCP `get_review_draft` + list_reviews V2 status doc
+
+**Goal:** M77 enriched `get_citation_audit` with project
+context. The sibling MCP tool `get_review_draft` had the
+same gap: it returned `researchQuestion` but no
+`projectTitle`, so an AI assistant fetching a draft had
+to do a second lookup to know what project the draft
+belonged to. Also discovered: `list_reviews` schema
+documented the V1 status enum members in a docstring,
+but V2 added four states (DISCOVERING /
+AWAITING_DISCOVERY_APPROVAL / FETCHING / SCREENING) that
+the docstring missed — though the runtime is fine
+(`z.string()` is forward-compatible).
+
+**What shipped:**
+
+- `getReviewDraftOutput` Zod schema gains
+  `projectTitle: z.string()`.
+- `getReviewDraft` handler's Prisma select joins
+  `project.title`.
+- `list_reviews` status field's inline docstring
+  enumerates both V1 + V2 states ("V1: ... V2 outbound:
+  DISCOVERING|AWAITING_DISCOVERY_APPROVAL|FETCHING|
+  SCREENING.").
+- Existing `get-review-draft.test.ts` fixture +
+  assertion extended with `projectTitle: "GAT Review"`.
+
+**Why no schema bump on list_reviews:** the runtime
+type was already `z.string()`. The fix is a docstring
+update for human readers + AI consumers reading the
+schema. No backwards-incompatible change.
+
+**Key files:** `lib/mcp/tools/get-review-draft.ts`, `lib/mcp/tools/list-reviews.ts`, `tests/lib/mcp/tools/get-review-draft.test.ts`
+
 ## V2-M77 — MCP `get_citation_audit` mirrors the HTTP audit shape
 
 **Goal:** M75 enriched the HTTP `/api/runs/[id]/audit.json`
