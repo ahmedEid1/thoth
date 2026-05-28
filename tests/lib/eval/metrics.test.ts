@@ -68,7 +68,7 @@ describe("claimFaithfulness", () => {
 });
 
 describe("expectedClaimCoverage", () => {
-  it("returns 1.0 when every expected claim substring appears in draft (case-insensitive)", () => {
+  it("returns 1.0 when every expected claim's terms appear in draft (case-insensitive)", () => {
     const draft = "The result is X improves Y by 25%. Also CBT outperforms standard care.";
     expect(
       expectedClaimCoverage(["X improves Y", "cbt outperforms"], draft),
@@ -82,6 +82,40 @@ describe("expectedClaimCoverage", () => {
   });
   it("returns 1.0 when expected is empty (vacuously true)", () => {
     expect(expectedClaimCoverage([], "anything")).toBe(1);
+  });
+
+  // The headline fix: the old exact-substring check scored ~0 against any
+  // paraphrasing LLM draft. Token-overlap + light stemming credits a finding
+  // when the draft discusses it with different word order / inflection.
+  it("credits a paraphrased finding the old substring check would have missed", () => {
+    // "TDD increases test coverage" never appears verbatim, but every key
+    // term does (with tense/order variation).
+    const draft =
+      "Across the studies, test-driven development consistently increased automated " +
+      "test coverage relative to test-after teams.";
+    expect(expectedClaimCoverage(["TDD increases test coverage"], draft)).toBe(0);
+    // ^ "TDD" (acronym) isn't in the prose, so this finding is NOT covered —
+    // the metric stays honest: a key term genuinely absent means not covered.
+
+    const draftWithAcronym =
+      "TDD consistently increased automated test coverage relative to test-after teams.";
+    expect(expectedClaimCoverage(["TDD increases test coverage"], draftWithAcronym)).toBe(1);
+  });
+
+  it("matches across inflection (plural / tense) via the light stemmer", () => {
+    const draft = "The intervention reduced production defects markedly.";
+    // "reduces" → "reduc" matches "reduced"; "defects" → "defect" matches.
+    expect(expectedClaimCoverage(["reduces production defects"], draft)).toBe(1);
+  });
+
+  it("does not credit a finding whose key term is absent", () => {
+    const draft = "Test-driven development increased coverage and slowed initial delivery.";
+    expect(expectedClaimCoverage(["TDD reduces production defects"], draft)).toBe(0);
+  });
+
+  it("ignores word order and stopwords", () => {
+    const draft = "Coverage of tests was higher under the development approach.";
+    expect(expectedClaimCoverage(["development coverage of tests"], draft)).toBe(1);
   });
 });
 

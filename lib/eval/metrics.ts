@@ -61,9 +61,67 @@ export function claimFaithfulness(
   return supported / claimChecks.length;
 }
 
+// Small, conservative English stopword set — function words that carry no
+// topical signal. Kept deliberately short so we never strip a word that's
+// actually load-bearing in a finding.
+const COVERAGE_STOPWORDS = new Set([
+  "a", "an", "the", "of", "in", "on", "at", "to", "for", "and", "or", "but",
+  "with", "is", "are", "was", "were", "be", "been", "being", "by", "as",
+  "that", "this", "than", "then", "from", "it", "its", "into", "over",
+  "under", "vs", "versus", "a's",
+]);
+
+/**
+ * Light suffix stemmer — collapses common English inflections so a claim's
+ * "increases" matches a draft's "increased" / "increasing". A min-stem-length
+ * guard avoids mangling short words ("used" stays "used", not "us"), and the
+ * `ss` guard protects words like "process" / "address". This is NOT a full
+ * Porter stemmer — the goal is tense/plural tolerance, not linguistic
+ * completeness.
+ */
+function coverageStem(word: string): string {
+  if (word.endsWith("ss")) return word;
+  const strip = (suffix: string, repl = ""): string | null =>
+    word.endsWith(suffix) && word.length - suffix.length + repl.length >= 3
+      ? word.slice(0, -suffix.length) + repl
+      : null;
+  return strip("ies", "y") ?? strip("ing") ?? strip("ed") ?? strip("es") ?? strip("s") ?? word;
+}
+
+/** Lowercase → strip punctuation → split → drop stopwords → stem. */
+function contentStems(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/[\s-]+/)
+    .filter((t) => t.length > 0 && !COVERAGE_STOPWORDS.has(t))
+    .map(coverageStem);
+}
+
+/**
+ * Fraction of expected canonical findings the draft covers. A finding counts
+ * as covered when EVERY content word of the claim (stopwords removed, light
+ * stemming applied) appears somewhere in the draft.
+ *
+ * This measures the stated intent — "does the draft *mention* this finding?"
+ * The previous implementation did an exact case-insensitive substring match
+ * (`draft.includes("tdd increases test coverage")`), which required the
+ * claim's verbatim phrasing and so scored ~0 against any paraphrasing LLM
+ * draft — the metric read 0% across every golden on the public dashboard
+ * despite the drafts plainly discussing the findings. Token-overlap with
+ * stemming is a strict superset of the old check (a verbatim match still has
+ * all its terms present), so scores can only rise, never regress.
+ *
+ * "All content terms present (stemmed)" has no leniency threshold to tune;
+ * a future caller wanting partial credit can switch `.every` to a ratio.
+ */
 export function expectedClaimCoverage(expectedClaims: string[], draft: string): number {
   if (expectedClaims.length === 0) return 1;
-  const haystack = draft.toLowerCase();
-  const hits = expectedClaims.filter((c) => haystack.includes(c.toLowerCase())).length;
+  const draftStems = new Set(contentStems(draft));
+  const hits = expectedClaims.filter((c) => {
+    const claimStems = contentStems(c);
+    if (claimStems.length === 0) return false;
+    return claimStems.every((s) => draftStems.has(s));
+  }).length;
   return hits / expectedClaims.length;
 }

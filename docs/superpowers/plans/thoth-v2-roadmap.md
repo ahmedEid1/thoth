@@ -125,6 +125,45 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M117 — Fix expected-claim-coverage metric (0% on every golden)
+
+**Goal:** Fix a real metric defect found by inspecting the live `/evals`
+dashboard: Expected-claim coverage read **0% on all 9 questions** with data.
+`expectedClaimCoverage` did an exact case-insensitive substring match —
+`draft.toLowerCase().includes("tdd increases test coverage")` — but LLM
+drafts paraphrase, so the verbatim phrase essentially never appears. The
+metric's stated purpose ("does the draft *mention* the canonical findings?")
+contradicted its verbatim-substring implementation, so it produced a
+uniformly-0% (zero-signal, misleading) column on the public page.
+
+**What shipped (`lib/eval/metrics.ts`):**
+
+- Replaced exact-substring with **token-overlap + light stemming**: a finding
+  is covered when EVERY content word of the claim (small stopword set removed,
+  a conservative suffix stemmer applied for tense/plural tolerance — `ies→y`,
+  `ing`/`ed`/`es`/`s`, with a min-stem-length guard and an `ss` guard) appears
+  somewhere in the draft. No leniency threshold to tune ("all key terms
+  present"); a future caller can switch `.every` to a ratio for partial credit.
+- Strict superset of the old check — a verbatim match still has all its terms
+  present — so scores can only rise, never regress. The regression gate is
+  advisory and drop-based, so a rising score can't trip it.
+
+**Tests:** +4 cases proving the headline behavior — credits a paraphrased
+finding the substring check missed (and stays honest: an absent acronym/key
+term still counts as not-covered), matches across inflection via the stemmer,
+ignores word order + stopwords. 642 unit/integ green.
+
+**Deploy note:** the dashboard reads stored `EvalRun` rows, which are written
+at sweep time; the new numbers appear after the next eval sweep (weekly cron,
+or a manual `evals.yml` workflow_dispatch). No app/worker redeploy — metrics
+are computed only by `scripts/run-evals.ts` in CI.
+
+**Why this matters:** `/evals` is a public "evaluate in the open" page; a
+headline metric stuck at 0% reads as "the agent never covers expected
+findings," undercutting the credibility the page exists to build.
+
+**Key files:** `lib/eval/metrics.ts`, `tests/lib/eval/metrics.test.ts`
+
 ## V2-M116 — Fix the public showcase's broken references ("Untitled paper" ×4)
 
 **Goal:** Fix a visible defect on `/showcase` — the project's public exemplar
