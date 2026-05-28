@@ -1,8 +1,7 @@
 # Contributing to Thoth
 
 Thanks for your interest! Thoth is built with spec-driven development — see
-[`docs/architecture.md`](docs/architecture.md) for how it fits together and
-[`docs/superpowers/`](docs/superpowers/) for the design specs + build log.
+[`docs/architecture.md`](docs/architecture.md) for how it fits together.
 
 ## Local setup
 

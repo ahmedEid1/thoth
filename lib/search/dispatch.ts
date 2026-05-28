@@ -56,8 +56,6 @@ export type DispatchResult = {
  * keep the highest `initialScore`. (Tie → first encountered.) OpenAlex
  * tends to have the richest metadata, but Exa's semantic scores are often
  * better; the score-max keeps whichever signal was strongest.
- *
- * Spec: docs/superpowers/specs/thoth-v2-design.md §2
  */
 export async function dispatchSearch(args: {
   query: SearchQuery;

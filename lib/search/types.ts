@@ -5,8 +5,6 @@
  * returning a normalized `DiscoveredPaperSpec[]`. The dispatcher
  * (`lib/search/dispatch.ts`) calls every adapter in parallel, deduplicates
  * by canonical id, and hands the result to the discoverer agent node.
- *
- * Spec: docs/superpowers/specs/thoth-v2-design.md §4
  */
 
 import { z } from "zod";

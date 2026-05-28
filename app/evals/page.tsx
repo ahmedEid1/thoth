@@ -425,15 +425,7 @@ export default async function EvalsPage() {
           </a>
         </span>
         <span>
-          Methodology ·{" "}
-          <a
-            href="https://github.com/ahmedEid1/thoth/blob/master/docs/superpowers/specs/thoth-design.md#8-eval-harness"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[var(--thoth-blue)] hover:underline underline-offset-4"
-          >
-            Design — eval harness
-          </a>
+          Methodology — see &ldquo;How this works&rdquo; below
         </span>
         <span>
           Headless runner ·{" "}

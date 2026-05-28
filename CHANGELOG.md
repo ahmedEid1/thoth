@@ -1,8 +1,6 @@
 # Changelog
 
-All notable changes to Thoth. Versions follow the milestone build order;
-the deep per-milestone shipping logs live in
-[`docs/superpowers/plans/`](docs/superpowers/plans/).
+All notable changes to Thoth. Versions follow the milestone build order.
 
 ## v2.0.0 — Outbound web search
 
@@ -19,8 +17,7 @@ assessor → drafter → critic → cite_check pipeline ever runs.
 - Eval framework gains `discovery_recall` + `screening_precision`.
 - Hardening pass: per-call `SearchQuery` audit table; `runLLM` retries transient
   schema-mismatches; assessor per-paper soft-fail; `MAX_INCLUDED_PAPERS` cap;
-  bounded OCR retry. Full log:
-  [`docs/superpowers/plans/thoth-v2-roadmap.md`](docs/superpowers/plans/thoth-v2-roadmap.md).
+  bounded OCR retry.
 
 ## v1.0.1 — Post-release polish
 

@@ -91,7 +91,7 @@ model Project {
 
   // V2 — outbound search configuration. Defaults match V1 behavior: every
   // existing project + every newly-created project ignores outbound providers
-  // unless the user opts in. See docs/superpowers/specs/thoth-v2-design.md §3.
+  // unless the user opts in.
   searchScope       SearchScope @default(uploaded_only)
   searchProviders   String[]    @default([]) // e.g. ["openalex","arxiv","exa"]
   searchYearStart   Int?

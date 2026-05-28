@@ -55,8 +55,7 @@ test.describe("upload flow", () => {
   // signal. The PARSING → PARSED contract is already covered by the unit
   // test in `tests/trigger/parse-pdf.test.ts` with the Mistral SDK mocked.
   // (Earlier comment here referenced `marker-pdf` + "M3 deployment" — both
-  // outdated; the parser switched to HTTP Mistral OCR at v0.5.1, see
-  // docs/superpowers/plans/thoth-roadmap.md.)
+  // outdated; the parser switched to HTTP Mistral OCR at v0.5.1.)
   test.skip("uploaded PDF reaches PARSED status with non-empty markdown", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page.getByText(/^parsed$/i)).toBeVisible({ timeout: 120_000 });

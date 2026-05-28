@@ -1,9 +1,7 @@
 # Architecture
 
 How Thoth is built — the agent pipeline, the stack, and the local/test workflow.
-For the public-facing overview, see the [README](../README.md); for the full
-design rationale see
-[`docs/superpowers/specs/thoth-design.md`](superpowers/specs/thoth-design.md).
+For the public-facing overview, see the [README](../README.md).
 
 ## The agent pipeline
 
