@@ -146,6 +146,33 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M87 — Status pill: REJECTED variant matches M86's "informational, not error"
+
+**Goal:** M86 styled the REJECTED *panel* in neutral
+papyrus to distinguish user-initiated aborts from
+true agent failures. The `RunStatusPill`'s variant
+map still had both REJECTED + FAILED mapped to
+`destructive` (red). A runs list with a mix of
+completed / rejected / failed runs read as half-red
+when really only the FAILED ones were errors.
+
+**What shipped:**
+
+- `REJECTED` → `outline` (neutral) in the
+  RunStatusPill variant map.
+- `FAILED` → `destructive` (unchanged).
+- M48's M86 mention added to the in-file comment so a
+  future reader understands the asymmetry isn't an
+  oversight.
+
+**Why outline and not secondary:** outline reads as
+neutral state ("nothing special happening"); secondary
+reads as "this is in-progress" (used for PLANNING /
+DRAFTING / etc.). REJECTED is terminal, not in-progress
+— outline is the right shape.
+
+**Key files:** `components/runs/run-status-pill.tsx`
+
 ## V2-M86 — Distinguish REJECTED from FAILED in the run-detail panel
 
 **Goal:** Both REJECTED + FAILED runs have a non-null

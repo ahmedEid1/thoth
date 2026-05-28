@@ -27,7 +27,12 @@ const VARIANT: Record<RunStatus, "default" | "secondary" | "outline" | "destruct
   ASSESSING: "secondary",
   DRAFTING: "secondary",
   COMPLETED: "default",
-  REJECTED: "destructive",
+  // M87: REJECTED is the user's deliberate choice at an HITL gate, not
+  // an agent error. Style it as outline (neutral) to match the M86
+  // run-detail panel treatment — saving the destructive red for FAILED
+  // (true agent crash). The distinction matters when scanning a runs
+  // list with mixed terminal states.
+  REJECTED: "outline",
   FAILED: "destructive",
   // V2 — match the visual semantics of the V1 equivalents: processing
   // states are "secondary" (subtle), HITL gates are "default" (prominent).
