@@ -298,14 +298,26 @@ The big new privacy concern: **outbound API calls leak the research question
 to third parties** (Exa, OpenAlex, arXiv). V1's tightest selling point —
 "your corpus stays on your infra" — needs to be re-stated for v2:
 
-- Outbound mode is **opt-in per project**, not global default.
-- `docs/security-and-privacy.md` §2 gains an entry per provider listing
-  their data-residency + retention policy (Exa US; OpenAlex EU; arXiv US).
-- The discoverer node logs the exact query strings to a new `SearchQuery`
-  audit table so a worried researcher can re-derive what was sent to whom.
-- A new env-gated `SEARCH_DISABLED` operator kill switch (mirrors
-  `DEMO_DISABLED` from v1.0.0) — flip it to force every project back to
-  uploaded-only mode without a deploy.
+Shipped controls (status of each, as of v2.0):
+
+- Outbound mode is **opt-in per project**, not global default. ✓
+- `docs/security-and-privacy.md` §2 lists each provider's
+  data-residency: OpenAlex US, arXiv US, Exa US (opt-in only when
+  `EXA_API_KEY` is set + the project explicitly selects Exa). ✓
+- Discoverer query strings are persisted on the
+  `HumanCheckpoint.proposal` JSON of the `APPROVE_DISCOVERY` row, and
+  surfaced via the `get_search_queries` MCP tool and the run-detail
+  page's Discovery summary panel. A worried researcher can re-derive
+  what was sent to whom. (Dedicated `SearchQuery` audit table from
+  the original spec was deferred — `HumanCheckpoint.proposal` is the
+  on-disk audit today.)
+- `SEARCH_DISABLED` env-gated operator kill switch (mirrors
+  `DEMO_DISABLED` from v1.0.0). The runs-start route fails fast with
+  503 `search_disabled` when set, so outbound runs don't burn
+  planner LLM tokens before being told the feature is unavailable. ✓
+- SSRF defense in the fetcher (`isSafeExternalUrl`): rejects
+  loopback / link-local / RFC 1918 / non-HTTP-S URLs before any
+  fetch() call. ✓ (M33)
 
 The self-host story is unchanged: outbound providers still need to be
 reachable from the self-host VM, but the search-API keys (Exa) live in
