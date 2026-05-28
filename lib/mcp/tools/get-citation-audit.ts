@@ -9,6 +9,13 @@ export const getCitationAuditInput = z.object({
 
 export const getCitationAuditOutput = z.object({
   reviewId: z.string(),
+  // M77: project context so an AI assistant calling the tool has enough
+  // info to talk about the review without a second look_up. Mirrors the
+  // M75 enrichment of the HTTP audit.json route.
+  projectTitle: z.string(),
+  reviewQuestion: z.string(),
+  runStartedAt: z.string(),
+  runCompletedAt: z.string().nullable(),
   faithfulnessScore: z.number().nullable(),
   totalClaims: z.number().int(),
   supportedCount: z.number().int(),
@@ -35,7 +42,14 @@ export async function getCitationAudit(
 ): Promise<z.infer<typeof getCitationAuditOutput>> {
   const run = await db.run.findFirst({
     where: { id: input.reviewId, project: { ownerId: ctx.userId } },
-    select: { id: true, faithfulnessScore: true },
+    select: {
+      id: true,
+      faithfulnessScore: true,
+      createdAt: true,
+      completedAt: true,
+      question: true,
+      project: { select: { title: true } },
+    },
   });
   if (!run) throw new NotFoundError("review_not_found");
 
@@ -55,6 +69,10 @@ export async function getCitationAudit(
 
   return {
     reviewId: run.id,
+    projectTitle: run.project.title,
+    reviewQuestion: run.question,
+    runStartedAt: run.createdAt.toISOString(),
+    runCompletedAt: run.completedAt ? run.completedAt.toISOString() : null,
     faithfulnessScore: run.faithfulnessScore,
     totalClaims: claims.length,
     supportedCount: claims.filter(c => c.verdict === "supported").length,

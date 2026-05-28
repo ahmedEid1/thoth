@@ -146,6 +146,36 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M77 — MCP `get_citation_audit` mirrors the HTTP audit shape
+
+**Goal:** M75 enriched the HTTP `/api/runs/[id]/audit.json`
+response with `projectTitle`, `reviewQuestion`,
+`runStartedAt`, `runCompletedAt`. The MCP
+`get_citation_audit` tool — same data surface, AI
+assistant entry point — still returned the bare M35
+shape. AI clients (Claude.ai, Cursor) calling the tool
+had to look up the project context separately to
+discuss the audit meaningfully.
+
+**What shipped:**
+
+- `getCitationAuditOutput` Zod schema extended with the
+  same four metadata fields the HTTP route ships:
+  `projectTitle`, `reviewQuestion`, `runStartedAt`
+  (ISO), `runCompletedAt` (ISO or null).
+- `getCitationAudit` handler's Prisma select extended
+  to `createdAt`, `completedAt`, `question`, and the
+  joined `project.title`.
+- `auditGeneratedAt` deliberately omitted — MCP
+  responses are synchronous reads, so "now" is
+  implicit to the caller. Only the HTTP saved-to-disk
+  case needs that field.
+- Existing unit tests updated: both fixtures now
+  provide the new fields; assertions check exact
+  metadata values + null-completion edge case.
+
+**Key files:** `lib/mcp/tools/get-citation-audit.ts`, `tests/lib/mcp/tools/get-citation-audit.test.ts`
+
 ## V2-M76 — Provenance headers on .md + .bib downloads
 
 **Goal:** M75 stamped the audit JSON with project +

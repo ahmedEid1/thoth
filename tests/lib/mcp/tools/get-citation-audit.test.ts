@@ -16,7 +16,12 @@ beforeEach(() => vi.clearAllMocks());
 describe("getCitationAudit", () => {
   it("returns per-claim verdicts and aggregates for an owned review", async () => {
     vi.mocked(db.run.findFirst).mockResolvedValue({
-      id: "r1", faithfulnessScore: 0.83,
+      id: "r1",
+      faithfulnessScore: 0.83,
+      createdAt: new Date("2026-05-28T14:00:00Z"),
+      completedAt: new Date("2026-05-28T14:15:30Z"),
+      question: "How does archaeal hibernation work?",
+      project: { title: "GAT Review" },
     } as never);
     vi.mocked(db.claimCheck.findMany).mockResolvedValue([
       { paperId: "p1", claim: "A claim", verdict: "SUPPORTED", reason: "found in page 3", paperExcerpt: "supporting span" },
@@ -31,6 +36,13 @@ describe("getCitationAudit", () => {
 
     expect(res).toEqual({
       reviewId: "r1",
+      // M77: MCP response now mirrors the HTTP audit.json shape with
+      // project context fields so an AI assistant has enough info to
+      // discuss the review without a second lookup.
+      projectTitle: "GAT Review",
+      reviewQuestion: "How does archaeal hibernation work?",
+      runStartedAt: "2026-05-28T14:00:00.000Z",
+      runCompletedAt: "2026-05-28T14:15:30.000Z",
       faithfulnessScore: 0.83,
       totalClaims: 3,
       supportedCount: 1,
@@ -45,13 +57,25 @@ describe("getCitationAudit", () => {
   });
 
   it("returns empty claims array when cite_check has not run yet", async () => {
-    vi.mocked(db.run.findFirst).mockResolvedValue({ id: "r1", faithfulnessScore: null } as never);
+    vi.mocked(db.run.findFirst).mockResolvedValue({
+      id: "r1",
+      faithfulnessScore: null,
+      createdAt: new Date("2026-05-28T14:00:00Z"),
+      completedAt: null,
+      question: "Empty test",
+      project: { title: "Empty Review" },
+    } as never);
     vi.mocked(db.claimCheck.findMany).mockResolvedValue([] as never);
 
     const res = await getCitationAudit({ reviewId: "r1" }, { userId: "u1", clerkId: "c1" });
 
     expect(res).toEqual({
-      reviewId: "r1", faithfulnessScore: null,
+      reviewId: "r1",
+      projectTitle: "Empty Review",
+      reviewQuestion: "Empty test",
+      runStartedAt: "2026-05-28T14:00:00.000Z",
+      runCompletedAt: null,
+      faithfulnessScore: null,
       totalClaims: 0, supportedCount: 0, unsupportedCount: 0, unclearCount: 0,
       claims: [],
     });
