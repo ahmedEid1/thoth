@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { buildRunFilename } from "@/lib/download-filename";
+import { extractPaperTitle, formatReferenceLine } from "@/lib/paper-title";
 
 /**
  * Download a completed Run's draft as a Markdown file.
@@ -29,6 +30,24 @@ export async function GET(
       completedAt: true,
       question: true,
       project: { select: { ownerId: true, title: true } },
+      // Included papers, to build a References appendix that resolves the
+      // draft's `[<corpusItemId>]` markers (opaque cuids on their own).
+      includedPapers: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          corpusItemId: true,
+          corpusItem: {
+            select: {
+              parsedMarkdown: true,
+              externalDoi: true,
+              externalArxivId: true,
+              discoveredAs: {
+                select: { authors: true, publicationYear: true, venue: true },
+              },
+            },
+          },
+        },
+      },
     },
   });
   if (!run || run.project.ownerId !== user.id || !run.draft) {
@@ -61,7 +80,28 @@ export async function GET(
     "",
   ].filter(Boolean).join("\n");
 
-  return new NextResponse(header + run.draft, {
+  // Build a References appendix so the downloaded .md is self-contained:
+  // the draft cites papers with opaque `[<corpusItemId>]` markers (M98),
+  // and without a key a reader can't tell what `[cm123abc]` refers to.
+  // Each line is `formatReferenceLine`-formatted (title — authors (year)
+  // · venue · link). Only appended when there are included papers.
+  let references = "";
+  if (run.includedPapers.length > 0) {
+    const lines = run.includedPapers.map((ip) =>
+      formatReferenceLine({
+        corpusItemId: ip.corpusItemId,
+        title: extractPaperTitle(ip.corpusItem.parsedMarkdown),
+        authors: ip.corpusItem.discoveredAs?.authors ?? null,
+        year: ip.corpusItem.discoveredAs?.publicationYear ?? null,
+        venue: ip.corpusItem.discoveredAs?.venue ?? null,
+        externalDoi: ip.corpusItem.externalDoi,
+        externalArxivId: ip.corpusItem.externalArxivId,
+      }),
+    );
+    references = `\n\n## References\n\n${lines.join("\n")}\n`;
+  }
+
+  return new NextResponse(header + run.draft + references, {
     status: 200,
     headers: {
       "content-type": "text/markdown; charset=utf-8",

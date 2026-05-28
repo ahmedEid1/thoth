@@ -15,11 +15,26 @@ describe("GET /api/runs/[id]/draft.md", () => {
   it("returns the draft as a markdown attachment for the owner", async () => {
     vi.mocked(requireUser).mockResolvedValue({ id: "u1" } as never);
     vi.mocked(db.run.findUnique).mockResolvedValue({
-      draft: "# My Review\n\nClaim [paper_001].",
+      draft: "# My Review\n\nClaim [cm_a].",
       createdAt: new Date("2026-05-28T14:00:00Z"),
       completedAt: new Date("2026-05-28T14:15:30Z"),
       question: "How does archaeal hibernation work?",
       project: { ownerId: "u1", title: "GAT Review" },
+      includedPapers: [
+        {
+          corpusItemId: "cm_a",
+          corpusItem: {
+            parsedMarkdown: "# First Paper\n\nbody",
+            externalDoi: "10.1/a",
+            externalArxivId: null,
+            discoveredAs: {
+              authors: ["Jane Doe", "John Roe"],
+              publicationYear: 2021,
+              venue: "Nature",
+            },
+          },
+        },
+      ],
     } as never);
 
     const { GET } = await import("@/app/api/runs/[id]/draft.md/route");
@@ -47,7 +62,12 @@ describe("GET /api/runs/[id]/draft.md", () => {
     expect(text).toContain("Run started: 2026-05-28T14:00:00.000Z");
     expect(text).toContain("Run completed: 2026-05-28T14:15:30.000Z");
     expect(text).toContain("-->");
-    expect(text.endsWith("# My Review\n\nClaim [paper_001].")).toBe(true);
+    // The original draft body is preserved verbatim...
+    expect(text).toContain("# My Review\n\nClaim [cm_a].");
+    // M99: ...followed by a References appendix resolving the
+    // [<corpusItemId>] markers.
+    expect(text).toContain("## References");
+    expect(text).toContain("- **[cm_a]** First Paper — Jane Doe, John Roe (2021) · Nature · https://doi.org/10.1/a");
   });
 
   it("returns 404 when the run has no draft yet (in-flight or rejected)", async () => {

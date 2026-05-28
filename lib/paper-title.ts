@@ -58,3 +58,52 @@ export function extractPaperTitle(markdown: string | null | undefined): string |
   }
   return null;
 }
+
+/**
+ * Compact human-readable author string for a reference line:
+ *   []                  → null
+ *   ["A"]               → "A"
+ *   ["A", "B"]          → "A, B"
+ *   ["A", "B", "C", "D"]→ "A, B, et al." (cap at 3 then et al.)
+ *
+ * Exported for unit testing.
+ */
+export function formatAuthors(authors: string[] | null | undefined): string | null {
+  if (!authors || authors.length === 0) return null;
+  if (authors.length <= 3) return authors.join(", ");
+  return `${authors.slice(0, 3).join(", ")}, et al.`;
+}
+
+/**
+ * Build a one-line human-readable reference for the draft's References
+ * appendix. The corpusItemId is the citation key the draft cites with
+ * (see M98), so the line lets a reader resolve `[<id>]` markers.
+ *
+ * Shape (fields omitted when absent):
+ *   - **[<id>]** Title — Authors (Year). Venue. https://doi.org/<doi>
+ *
+ * Exported for unit testing.
+ */
+export function formatReferenceLine(ref: {
+  corpusItemId: string;
+  title: string | null;
+  authors?: string[] | null;
+  year?: number | null;
+  venue?: string | null;
+  externalDoi?: string | null;
+  externalArxivId?: string | null;
+}): string {
+  const parts: string[] = [`- **[${ref.corpusItemId}]**`];
+  parts.push(ref.title ?? "Untitled paper");
+  const authorStr = formatAuthors(ref.authors);
+  const yearStr = ref.year != null ? `(${ref.year})` : null;
+  // "— Authors (Year)" — join author + year with a space when both exist.
+  const authorYear = [authorStr, yearStr].filter(Boolean).join(" ");
+  if (authorYear) parts.push(`— ${authorYear}`);
+  if (ref.venue) parts.push(`· ${ref.venue}`);
+  let link: string | null = null;
+  if (ref.externalDoi) link = `https://doi.org/${ref.externalDoi}`;
+  else if (ref.externalArxivId) link = `https://arxiv.org/abs/${ref.externalArxivId}`;
+  if (link) parts.push(`· ${link}`);
+  return parts.join(" ");
+}

@@ -146,6 +146,49 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M99 — References appendix on the draft .md download
+
+**Goal:** With M98 the draft cites papers as
+`[<corpusItemId>]` (cuids) — correct for resolving
+against the .bib, but opaque to a human reading the
+downloaded .md. There was no key explaining what
+`[cm123abc]` referred to.
+
+**What shipped:**
+
+- The `draft.md` route appends a `## References`
+  section listing every included paper, one line each:
+  `- **[<corpusItemId>]** Title — Authors (Year) ·
+  Venue · https://doi.org/<doi>`. The
+  `[<corpusItemId>]` matches the inline markers so a
+  reader can resolve them.
+- New `formatReferenceLine` + `formatAuthors` helpers
+  in `lib/paper-title.ts`:
+    - `formatAuthors` caps at 3 names then "et al."
+      (a 50-author physics paper shouldn't dump all
+      50 into the reference line).
+    - `formatReferenceLine` omits each section
+      (authors / year / venue / link) when absent, so
+      an uploaded PDF with only a title renders
+      cleanly as `- **[id]** Title`.
+    - arXiv link used when there's no DOI.
+- Author/year/venue come from the same `discoveredAs`
+  join the .bib route uses (M97) — V2 papers get rich
+  references, uploaded PDFs get title-only.
+- Appendix only added when there are included papers.
+- 11 new tests (formatAuthors matrix, formatReferenceLine
+  full/null-title/arxiv/uploaded) + the draft.md route
+  test asserts the appended References block.
+
+**Why in the download, not the stored draft:** the
+stored draft is the LLM's raw output (the cite-check
+node parses its `[id]` markers — mustn't perturb it).
+The References appendix is a presentation concern
+layered on at download time, like the M76 provenance
+header.
+
+**Key files:** `lib/paper-title.ts`, `app/api/runs/[id]/draft.md/route.ts`, `tests/lib/paper-title.test.ts`, `tests/api/runs-draft-md.test.ts`
+
 ## V2-M98 — BibTeX citation keys match the draft's `[paper_id]` markers (real bug)
 
 **Goal / the bug:** The whole value proposition of the
