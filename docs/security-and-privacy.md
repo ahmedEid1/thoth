@@ -30,6 +30,7 @@ table below is a human summary of what each row actually holds.
 | `IncludedPaper` / `ExtractedClaim` / `ClaimCheck` | Per-claim cite_check audit trail. | Agent output |
 | `DiscoveredPaper` *(v2)* | One row per paper the discoverer surfaced from an academic index (title, authors, abstract, DOI / arXiv id / OpenAlex W-id, initial relevance score). No raw provider payload. | Public metadata about published papers |
 | `ScreeningDecision` *(v2)* | The screener LLM's include/exclude verdict per discovered paper. | Agent output |
+| `SearchQuery` *(v2)* | Outbound-search audit: one row per (query × provider) call the discoverer made — the exact query string sent, the provider, pre-dedup result count, success/error. The query is LLM-generated text derived from the research question. Lets a researcher reconstruct exactly what was sent to whom. | User-derived query text |
 | `McpCall` | Audit log: `userId`, `toolName`, `inputHash` (SHA-256), `reviewId`, `status`, `latencyMs`, `createdAt`. **Raw tool inputs are never stored** — only the SHA-256 of canonical-JSON. | Audit log |
 | `EvalRun` | `goldenId`, `metric`, `score`, `commitSha`, `createdAt`. No user data. | Internal QA |
 | R2 bucket | Raw uploaded PDFs (PDF only — refused at `app/api/corpus/upload/route.ts` otherwise) and exported parsed markdown blobs. | User-uploaded content |
