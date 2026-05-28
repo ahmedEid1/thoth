@@ -1,0 +1,59 @@
+id: 017-rag-hallucination-grounding
+question: How effective is retrieval-augmented generation (RAG) at reducing hallucination in large language models, and which architectural variants improve factual grounding on knowledge-intensive question answering?
+picoc:
+  population: Large language models applied to knowledge-intensive and open-domain question answering
+  intervention: Retrieval-augmented generation (RAG) and its variants (self-reflective retrieval, adaptive retrieval, retrieval pre-training)
+  comparison: Parametric-only LLMs without retrieval, and vanilla single-pass RAG
+  outcome: Hallucination rate, factual accuracy / faithfulness, and QA exact-match
+  context: Open-domain and knowledge-intensive NLP benchmarks, 2020-2024
+
+# V2 OUTBOUND golden. The discoverer fires against real provider APIs
+# (OpenAlex + arXiv); the meaningful signal is `discovery_recall` /
+# `screening_precision` against `expectedDois` below. The synthetic `papers`
+# block is schema-required scaffolding only — a pure-outbound run builds its
+# own corpus and ignores the seeded paper, and run-evals.ts skips the
+# seed-corpus-based v1 metrics (citation_recall/precision, coverage) for
+# searchScope: outbound.
+searchScope: outbound
+searchProviders:
+  - openalex
+  - arxiv
+
+# Calibrated, NOT guessed: each id below was confirmed to be surfaced by the
+# live discoverer for this question (OpenAlex returns DOIs, not arXiv ids, and
+# ranks recent RAG-specific papers above the foundational RAG/REALM preprints —
+# so the "obvious" arXiv ids would have scored a misleading 0). These five are
+# on-topic (RAG hallucination / factual grounding / RAG evaluation) and within
+# the discoverer's top hits, so discovery_recall is a real regression baseline.
+expectedDois:
+  - "10.18653/v1/2024.acl-long.585"     # RAGTruth: a hallucination corpus for RAG
+  - "10.18653/v1/2023.emnlp-main.495"   # Active Retrieval Augmented Generation (FLARE)
+  - "10.1609/aaai.v38i16.29728"         # Benchmarking LLMs in Retrieval-Augmented Generation
+  - "10.18653/v1/2024.naacl-long.389"   # Adaptive-RAG
+  - "10.18653/v1/2024.eacl-demo.16"     # RAGAs: automated evaluation of RAG
+
+papers:
+  - id: paper_001
+    title: "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks"
+    summary: |
+      A synthetic scaffold entry (not used by the outbound run, which builds
+      its corpus from live discovery). Describes the canonical RAG architecture:
+      a parametric seq2seq model combined with a non-parametric dense retriever
+      over a Wikipedia index, trained end-to-end, improving factual grounding on
+      open-domain QA versus a parametric-only baseline.
+    markdown: |
+      # Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks
+
+      We introduce RAG, combining a pre-trained seq2seq generator with a dense
+      passage retriever over a Wikipedia index. Conditioning generation on
+      retrieved passages improves factual accuracy and reduces hallucination on
+      open-domain question answering relative to a parametric-only baseline.
+
+expectedPapers:
+  - paper_001
+expectedClaims:
+  - retrieval augmentation reduces hallucination versus parametric-only generation
+
+metadata:
+  source: "Synthetic v2-outbound golden — discovery_recall calibrated against the live OpenAlex/arXiv discoverer 2026-05-28"
+  difficulty: medium

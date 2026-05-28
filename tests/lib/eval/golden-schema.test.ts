@@ -111,4 +111,38 @@ describe("GoldenQuestionSchema", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  // V2 — searchScope/searchProviders opt a golden into the outbound pipeline;
+  // run-evals.ts passes them to the headless runner so the discoverer fires.
+  it("accepts searchScope + searchProviders for v2 outbound goldens", () => {
+    const r = GoldenQuestionSchema.safeParse({
+      ...validGolden,
+      searchScope: "outbound",
+      searchProviders: ["openalex", "arxiv"],
+      expectedDois: ["10.18653/v1/2024.acl-long.585"],
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.searchScope).toBe("outbound");
+      expect(r.data.searchProviders).toEqual(["openalex", "arxiv"]);
+    }
+  });
+
+  it("defaults searchScope/searchProviders to undefined (v1 shape)", () => {
+    const r = GoldenQuestionSchema.safeParse(validGolden);
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.searchScope).toBeUndefined();
+      expect(r.data.searchProviders).toBeUndefined();
+    }
+  });
+
+  it("rejects an unknown searchProvider", () => {
+    const r = GoldenQuestionSchema.safeParse({
+      ...validGolden,
+      searchScope: "outbound",
+      searchProviders: ["openalex", "scholar"], // 'scholar' not in enum
+    });
+    expect(r.success).toBe(false);
+  });
 });

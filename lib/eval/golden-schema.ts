@@ -34,12 +34,19 @@ export const GoldenQuestionSchema = z
     // when undefined (every existing V1 golden), those metrics are
     // skipped so the dashboard doesn't fill with vacuous 1.00 rows.
     expectedDois: z.array(z.string().min(3)).optional(),
+    // V2 — opt the golden into the outbound search pipeline. When
+    // `searchScope` is "outbound"/"hybrid", run-evals.ts passes it (and
+    // `searchProviders`) to the headless runner so the discoverer actually
+    // fires against real provider APIs and `discovery_recall` is meaningful.
+    // Omitted (the default) on every V1 golden → uploaded_only, unchanged.
+    searchScope: z.enum(["uploaded_only", "outbound", "hybrid"]).optional(),
+    searchProviders: z.array(z.enum(["openalex", "arxiv", "exa"])).optional(),
     metadata: MetadataSchema,
   })
   // `papers[].id` must be unique within the question — `lib/eval/seed-corpus.ts`
   // builds a Map<paper.id, corpusItem.id> and a duplicate paper id would
   // silently overwrite the earlier entry, dropping a paper from the seeded
-  // corpus. None of the existing 17 goldens have duplicates today; the
+  // corpus. None of the existing 18 goldens have duplicates today; the
   // refine keeps that invariant intact going forward.
   .refine(
     (g) => new Set(g.papers.map((p) => p.id)).size === g.papers.length,

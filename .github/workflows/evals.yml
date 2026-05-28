@@ -30,13 +30,17 @@ name: evals
 # Mistral's free Experiment tier is rate-limited (~1 RPS). The agent's
 # cite-check loop is already serial (PARALLEL=1) and the cost-cap at
 # 250k tokens per run keeps any single run bounded — but a full sweep
-# of all 17 goldens at ~1 RPS overshoots the 60-min job limit (run
+# of all 18 goldens at ~1 RPS overshoots the 60-min job limit (run
 # #26370438200 was cancelled at the cap). To stay in the free budget:
 #   - The cron uses a fixed 6-golden "smoke" set (000,001,002,004,005,007)
 #     which fits comfortably under 30 min.
-#   - The full 17-golden sweep is opt-in via `workflow_dispatch` with
+#   - The full 18-golden sweep is opt-in via `workflow_dispatch` with
 #     `goldens: all` — pick that when you've added a new golden or want
 #     a fresh complete baseline and you're OK burning more Mistral quota.
+#     NB: golden 017 is the v2 OUTBOUND golden — it drives the full
+#     discoverer→fetcher→screener→draft pipeline against live OpenAlex/arXiv,
+#     so it's slower than the uploaded_only goldens (per-golden 15-min cap
+#     applies). It's intentionally NOT in the smoke set.
 #   - Per-golden walltime cap (EVAL_GOLDEN_TIMEOUT_MS, default 15 min in
 #     scripts/run-evals.ts) means one stuck golden no longer kills the
 #     whole run.

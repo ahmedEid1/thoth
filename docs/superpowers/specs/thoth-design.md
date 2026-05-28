@@ -340,7 +340,7 @@ Results are written to the `EvalRun` table (`goldenId, metric, score, runId?, co
 
 ### Current state
 
-17 golden questions are checked in today — 3 synthetic seed goldens carried over from the harness's first ship plus 14 real-paper questions covering LLM / ML / software-engineering systematic reviews (each cited paper sourced from arXiv with a verifiable arXiv ID or DOI in `metadata.source`). Each paper's `markdown` is the title + abstract + one or two key paragraphs (~280-400 words) — enough surface for cite_check to verify claims without bloating eval cost. The set is wired into `.github/workflows/evals.yml` on a weekly cron so `/evals` reflects an honest current baseline, not a snapshot.
+18 golden questions are checked in today — 3 synthetic seed goldens carried over from the harness's first ship, 14 real-paper uploaded_only questions covering LLM / ML / software-engineering systematic reviews (each cited paper sourced from arXiv with a verifiable arXiv ID or DOI in `metadata.source`), plus 1 v2 **outbound** golden (`017-rag-hallucination-grounding`) whose `expectedDois` were calibrated against the live OpenAlex/arXiv discoverer so `discovery_recall` is a real regression baseline (it drives the full outbound pipeline; opt-in via `goldens: all`, not in the smoke set). Each uploaded_only paper's `markdown` is the title + abstract + one or two key paragraphs (~280-400 words) — enough surface for cite_check to verify claims without bloating eval cost. The set is wired into `.github/workflows/evals.yml` on a weekly cron so `/evals` reflects an honest current baseline, not a snapshot.
 
 ---
 

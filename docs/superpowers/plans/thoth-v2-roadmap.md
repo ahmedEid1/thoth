@@ -125,6 +125,50 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M125 — First v2 outbound eval golden + EVAL_MODE=outbound wiring (last deferred item)
+
+**Goal:** Ship the final open V2-spec item — real v2-mode goldens + the
+`EVAL_MODE=outbound` CI path. The metrics (`discovery_recall`,
+`screening_precision`) and the headless runner's outbound support already
+existed, but the path was half-wired: `run-evals.ts` called `runHeadless`
+**without** `searchScope`/`searchProviders`, so even a golden with
+`expectedDois` ran `uploaded_only` (no discoverer) → `discovery_recall` was
+structurally always 0.
+
+**What shipped:**
+
+- **Schema** (`lib/eval/golden-schema.ts`): goldens can now declare
+  `searchScope` + `searchProviders` (both optional; V1 goldens omit them).
+- **run-evals** (`scripts/run-evals.ts`): passes `g.searchScope` /
+  `g.searchProviders` to `runHeadless` so an outbound golden actually drives
+  the discoverer. AND skips the seed-corpus-based v1 metrics
+  (citation_recall/precision, expected_claim_coverage) for pure-outbound
+  goldens — those compare the *seeded* corpus to the run output, a
+  correspondence that only holds for uploaded_only/hybrid; for outbound they'd
+  be a misleading ~0 on the public dashboard (the M117 lesson). `claim_faithfulness`
+  is kept (cite_check runs on the actual draft) + the v2 metrics are emitted.
+- **Golden** (`evals/golden/017-rag-hallucination-grounding.yaml`): a real
+  outbound golden on RAG/hallucination/factual-grounding. Its 5 `expectedDois`
+  were **calibrated against the live OpenAlex/arXiv discoverer** (a throwaway
+  run for the question), NOT guessed — the calibration revealed OpenAlex
+  returns DOIs (not arXiv ids) and ranks recent RAG-specific papers above the
+  foundational RAG/REALM preprints, so the "obvious" arXiv ids would have
+  scored a misleading 0. The five chosen (RAGTruth, Active RAG/FLARE,
+  Benchmarking-LLMs-in-RAG, Adaptive-RAG, RAGAs) are confirmed-surfaced +
+  on-topic, making `discovery_recall` a genuine regression baseline.
+
+**Validation status:** structurally valid (the real loader parses all 18
+goldens incl. 017) + the DOIs are calibration-confirmed surfaced. End-to-end
+`discovery_recall` (full pipeline + metric) will be confirmed on the next
+`goldens: all` sweep — 017 is intentionally NOT in the 6-golden smoke set the
+cron runs (it drives the slower full outbound pipeline).
+
+**Tests:** golden-schema accepts searchScope/searchProviders + rejects unknown
+providers + defaults them undefined for v1.
+
+**Key files:** `lib/eval/golden-schema.ts`, `scripts/run-evals.ts`,
+`evals/golden/017-rag-hallucination-grounding.yaml`, `.github/workflows/evals.yml`
+
 ## V2-M124 — Harden the 24h HITL-checkpoint timeout path
 
 **Goal:** Fix two genuine issues in the HITL delivery flow found by an

@@ -106,6 +106,11 @@ async function main(): Promise<void> {
         projectId: seed.projectId,
         question: g.question,
         corpusItemIds: seed.corpusItemIds,
+        // V2 outbound goldens (searchScope set) drive the discoverer against
+        // real provider APIs so discovery_recall/screening_precision are
+        // meaningful; V1 goldens leave these undefined → uploaded_only.
+        searchScope: g.searchScope,
+        searchProviders: g.searchProviders,
       });
       // Clear the handle in `finally` so a normal completion does not leave a
       // live timer pinning the event loop. Without the clearTimeout, every
@@ -143,12 +148,25 @@ async function main(): Promise<void> {
     // cite_check writes rows asynchronously; fetch them
     const claimChecks = await db.claimCheck.findMany({ where: { runId: run.id } });
 
+    // claim_faithfulness is meaningful in every mode — cite_check verdicts are
+    // computed against the run's ACTUAL draft + cited corpus, regardless of
+    // how the corpus was assembled.
     const metrics: MetricRow[] = [
-      { goldenId: g.id, metric: "citation_recall",          score: citationRecall(g.expectedPapers, includedPaperIds) },
-      { goldenId: g.id, metric: "citation_precision",       score: citationPrecision(g.expectedPapers, includedPaperIds) },
-      { goldenId: g.id, metric: "claim_faithfulness",       score: claimFaithfulness(claimChecks) },
-      { goldenId: g.id, metric: "expected_claim_coverage",  score: expectedClaimCoverage(g.expectedClaims, result.draft ?? "") },
+      { goldenId: g.id, metric: "claim_faithfulness", score: claimFaithfulness(claimChecks) },
     ];
+    // citation_recall/precision + expected_claim_coverage compare the golden's
+    // SEEDED papers/claims against the run's output. That correspondence only
+    // holds when the seeded corpus is the cited corpus — i.e. uploaded_only and
+    // hybrid. A PURE outbound run cites the discovered corpus (no seed link), so
+    // these would always be a misleading ~0; skip them (the v2 discovery_recall
+    // / screening_precision below carry the real signal for outbound goldens).
+    if (g.searchScope !== "outbound") {
+      metrics.push(
+        { goldenId: g.id, metric: "citation_recall",         score: citationRecall(g.expectedPapers, includedPaperIds) },
+        { goldenId: g.id, metric: "citation_precision",      score: citationPrecision(g.expectedPapers, includedPaperIds) },
+        { goldenId: g.id, metric: "expected_claim_coverage", score: expectedClaimCoverage(g.expectedClaims, result.draft ?? "") },
+      );
+    }
 
     // V2 metrics: only computed when the golden expressed an expectation
     // (`expectedDois` set) AND the run actually went through the discoverer
