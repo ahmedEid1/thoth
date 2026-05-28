@@ -125,6 +125,35 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M120 — Set the SCREENING run status (declared-but-never-set)
+
+**Goal:** Close a half-built status: `RunStatus.SCREENING` was defined in the
+Prisma enum, handled by the run-status pill, AND listed in the `setRunStatus`
+type union — but **no code ever set it**. The fetcher + screener share one
+trigger segment (set to `FETCHING` before the invoke), so the status pill read
+"FETCHING" through the entire — often slow, LLM-bound — per-paper screening
+pass. Same "declared but never honored" class as M115's year filter.
+
+**What shipped (`lib/agent/nodes/screener.ts`):** the screener now calls
+`setRunStatus({ runId, status: "SCREENING" })` once it has papers to screen
+(after the empty-discovery guard, so a 0-paper run doesn't flip the pill).
+The trigger still sets `FETCHING` before the segment and
+`AWAITING_PAPERS_APPROVAL` after the gate, so the progression reads
+`FETCHING → SCREENING → AWAITING_PAPERS_APPROVAL` — accurate. This is the
+first node that self-updates `Run.status` (mid-segment granularity the
+segment-boundary trigger can't express without an interrupt); it reuses the
+already-imported `lib/agent/runs` helper.
+
+**Tests:** the scoring test asserts `SCREENING` is set; the empty-discovery
+test asserts it is NOT (no screening work → no status flip). 644 unit/integ
+green.
+
+**Why this matters:** during a multi-paper outbound run the screening pass is
+one of the longest phases; showing "FETCHING" the whole time misrepresents
+progress on the dashboard + run-detail pill.
+
+**Key files:** `lib/agent/nodes/screener.ts`, `tests/lib/agent/nodes/screener.test.ts`
+
 ## V2-M119 — Provider title for the citation-audit path too (completes M118)
 
 **Goal:** M118 fixed two of the three title-resolution paths (references +

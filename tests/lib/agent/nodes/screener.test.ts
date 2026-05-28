@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
     addStep: vi.fn(),
     finishStep: vi.fn(),
     findCorpusMarkdown: vi.fn(),
+    setRunStatus: vi.fn(),
     assertWithinBudget: vi.fn(),
     screeningDecisionCreate: vi.fn(),
     screeningDecisionFindMany: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("@/lib/agent/runs", () => ({
   addStep: mocks.addStep,
   finishStep: mocks.finishStep,
   findCorpusMarkdown: mocks.findCorpusMarkdown,
+  setRunStatus: mocks.setRunStatus,
 }));
 vi.mock("@/lib/agent/cost-cap", () => ({
   assertWithinBudget: mocks.assertWithinBudget,
@@ -86,6 +88,7 @@ beforeEach(() => {
     Promise.resolve({ id: `step_${nodeName}_${Math.random().toString(36).slice(2, 8)}` }),
   );
   mocks.finishStep.mockResolvedValue(undefined);
+  mocks.setRunStatus.mockResolvedValue(undefined);
   mocks.assertWithinBudget.mockResolvedValue({ tokensUsed: 0, limit: 250000 });
   mocks.findCorpusMarkdown.mockResolvedValue("# Full text body");
   mocks.screeningDecisionCreate.mockResolvedValue({ id: "sd_x" });
@@ -104,6 +107,8 @@ describe("screenerNode", () => {
     expect(r.includedPapers).toEqual([]);
     expect(r.screeningDecisions).toEqual([]);
     expect(mocks.runLLM).not.toHaveBeenCalled();
+    // No screening work → don't flip the status to SCREENING.
+    expect(mocks.setRunStatus).not.toHaveBeenCalled();
   });
 
   it("scores each paper, persists ScreeningDecision, and emits IncludedPaperSpec for include=true with full text", async () => {
@@ -126,6 +131,8 @@ describe("screenerNode", () => {
 
     expect(mocks.runLLM).toHaveBeenCalledTimes(2);
     expect(mocks.screeningDecisionCreate).toHaveBeenCalledTimes(2);
+    // Surfaces the SCREENING phase on the status pill (was stuck on FETCHING).
+    expect(mocks.setRunStatus).toHaveBeenCalledWith({ runId: "r1", status: "SCREENING" });
     expect(r.includedPapers).toHaveLength(1);
     expect(r.includedPapers![0]).toMatchObject({
       corpusItemId: "ci_a",

@@ -3,7 +3,7 @@ import {
   ScreeningVerdictSchema,
   buildScreenPaperRequest,
 } from "@/lib/prompts/screen-paper";
-import { addStep, finishStep, findCorpusMarkdown } from "@/lib/agent/runs";
+import { addStep, finishStep, findCorpusMarkdown, setRunStatus } from "@/lib/agent/runs";
 import {
   assertWithinBudget,
   BudgetExceededError,
@@ -52,6 +52,13 @@ export async function screenerNode(
       await finishStep({ stepId: outerStep.id });
       return { includedPapers: [], screeningDecisions: [] };
     }
+
+    // Surface the SCREENING phase on the status pill. The fetcher + screener
+    // share one trigger segment (set to FETCHING before the invoke), so
+    // without this the status reads "FETCHING" through the entire — often
+    // slow, LLM-bound — screening pass. The SCREENING enum + pill handling
+    // already existed for exactly this; only the setter was missing.
+    await setRunStatus({ runId: state.runId, status: "SCREENING" });
 
     // Idempotency: a Trigger.dev retry that replays this node mid-flight
     // would otherwise crash on the @@unique([discoveredPaperId]) constraint
