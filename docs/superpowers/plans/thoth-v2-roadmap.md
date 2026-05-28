@@ -125,6 +125,43 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M115 — Honor the project's publication-year filter (declared-but-dead bug)
+
+**Goal:** Fix a genuine end-to-end gap found during a fresh audit. The
+search-tuning surface (M8) added a publication-year range to the create +
+edit dialogs; `Project.searchYearStart` / `searchYearEnd` are validated,
+persisted, AND displayed on the project page — but the value never reached
+the search. The discoverer hardcoded `yearStart: undefined, yearEnd:
+undefined` in its `dispatchSearch` call, so the user's year filter was
+silently ignored. Same class of bug as M14/M15 ("declared, never honored").
+
+**What shipped:**
+
+- `lib/agent/state.ts`: `AgentState` gains `searchYearStart` / `searchYearEnd`
+  (both `number | null`, mirroring `searchMaxHits`).
+- `trigger/run-review.ts`: the project select + initial-state hydration now
+  carry the year range into the run.
+- `lib/agent/nodes/discoverer.ts`: the `dispatchSearch` call passes
+  `state.searchYearStart ?? undefined` / `searchYearEnd ?? undefined` instead
+  of hardcoded `undefined`.
+
+All three providers already implemented the filter (OpenAlex
+`from/to_publication_date`, Exa `start/endPublishedDate`, arXiv client-side),
+so this was purely a plumbing gap — the UI and the adapters were both ready;
+only the middle was disconnected.
+
+**Tests:** discoverer (year range reaches every dispatched query; null →
+undefined; one-sided bound); trigger (year range hydrated into the initial
+agent state). 638 unit/integ green.
+
+**Why this matters:** a tuning control that's collected, persisted, and shown
+back to the user but silently ignored is worse than not having it — the user
+believes they've scoped the search by year and trusts results that didn't
+honor the bound. This makes the M8 control real.
+
+**Key files:** `lib/agent/state.ts`, `trigger/run-review.ts`,
+`lib/agent/nodes/discoverer.ts`
+
 ## V2-M114 — SearchQuery audit table (the last deferred V2-spec item)
 
 **Goal:** Ship the dedicated `SearchQuery` audit table the original V2 spec

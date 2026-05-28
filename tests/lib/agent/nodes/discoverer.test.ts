@@ -72,6 +72,8 @@ const baseState: AgentState = {
   searchScope: "outbound",
   searchProviders: ["openalex", "arxiv"],
   searchMaxHits: null,
+  searchYearStart: null,
+  searchYearEnd: null,
   skipDiscoveryGate: false,
   discoveryQueries: [],
   discoveredPapers: [],
@@ -475,6 +477,61 @@ describe("discovererNode", () => {
 
     const createCall = mocks.createMany.mock.calls[0]![0];
     expect(createCall.data).toHaveLength(2);
+  });
+
+  describe("publication-year filter (M115)", () => {
+    it("passes the project's year range to every provider search", async () => {
+      mocks.runLLM.mockResolvedValue({
+        output: { queries: ["q1", "q2"], rationale: "x." },
+        traceUrl: "",
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+      });
+      mocks.dispatchSearch.mockResolvedValue({ hits: [], errors: [], providerStats: [] });
+      mocks.findMany.mockResolvedValue([]);
+
+      await discovererNode({ ...baseState, searchYearStart: 2020, searchYearEnd: 2024 });
+
+      // Every dispatched query carries the bounds (providers translate them).
+      for (const call of mocks.dispatchSearch.mock.calls) {
+        expect(call[0].query).toMatchObject({ yearStart: 2020, yearEnd: 2024 });
+      }
+    });
+
+    it("passes undefined bounds (no filter) when the project has no year range", async () => {
+      mocks.runLLM.mockResolvedValue({
+        output: { queries: ["q1"], rationale: "x." },
+        traceUrl: "",
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+      });
+      mocks.dispatchSearch.mockResolvedValue({ hits: [], errors: [], providerStats: [] });
+      mocks.findMany.mockResolvedValue([]);
+
+      await discovererNode(baseState); // searchYearStart/End are null
+
+      expect(mocks.dispatchSearch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: expect.objectContaining({ yearStart: undefined, yearEnd: undefined }),
+        }),
+      );
+    });
+
+    it("treats a one-sided bound correctly (only yearStart set)", async () => {
+      mocks.runLLM.mockResolvedValue({
+        output: { queries: ["q1"], rationale: "x." },
+        traceUrl: "",
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, cacheReadInputTokens: 0 },
+      });
+      mocks.dispatchSearch.mockResolvedValue({ hits: [], errors: [], providerStats: [] });
+      mocks.findMany.mockResolvedValue([]);
+
+      await discovererNode({ ...baseState, searchYearStart: 2015, searchYearEnd: null });
+
+      expect(mocks.dispatchSearch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: expect.objectContaining({ yearStart: 2015, yearEnd: undefined }),
+        }),
+      );
+    });
   });
 
   describe("SearchQuery audit (per query × provider call)", () => {

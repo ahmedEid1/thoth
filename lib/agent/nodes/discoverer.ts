@@ -117,7 +117,15 @@ export async function discovererNode(
     // in parallel via dispatchSearch.
     for (const query of queries) {
       const r = await dispatchSearch({
-        query: { query, yearStart: undefined, yearEnd: undefined, limit: 25 },
+        query: {
+          query,
+          // Honor the project's publication-year filter (M115). Sourced from
+          // Project.searchYearStart/searchYearEnd via state; null → undefined
+          // (no bound). Every provider applies these.
+          yearStart: state.searchYearStart ?? undefined,
+          yearEnd: state.searchYearEnd ?? undefined,
+          limit: 25,
+        },
         providers,
       });
       allHits.push(...r.hits);

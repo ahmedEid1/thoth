@@ -74,6 +74,8 @@ export const runReviewTask = schemaTask({
           searchScope: true,
           searchProviders: true,
           searchMaxHits: true,
+          searchYearStart: true,
+          searchYearEnd: true,
           skipDiscoveryGate: true,
         },
       });
@@ -110,6 +112,8 @@ export const runReviewTask = schemaTask({
             p === "openalex" || p === "arxiv" || p === "exa",
         ),
         searchMaxHits: project.searchMaxHits,
+        searchYearStart: project.searchYearStart,
+        searchYearEnd: project.searchYearEnd,
         skipDiscoveryGate: project.skipDiscoveryGate,
         discoveryQueries: [],
         discoveredPapers: [],

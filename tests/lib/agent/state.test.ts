@@ -43,6 +43,8 @@ describe("AgentStateAnnotation", () => {
       searchScope: "uploaded_only" as const,
       searchProviders: [],
       searchMaxHits: null,
+      searchYearStart: null,
+      searchYearEnd: null,
       skipDiscoveryGate: false,
       discoveryQueries: [],
       discoveredPapers: [],

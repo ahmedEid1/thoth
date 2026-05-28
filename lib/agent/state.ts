@@ -144,6 +144,19 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (_old, neu) => neu,
     default: () => null,
   }),
+  // Per-project publication-year filter applied to every provider search.
+  // Sourced from Project.searchYearStart/searchYearEnd (both nullable — null
+  // means "no bound on that end"). The providers translate these to their own
+  // params (OpenAlex from/to_publication_date, Exa start/endPublishedDate,
+  // arXiv client-side filter). Null on both = unbounded.
+  searchYearStart: Annotation<number | null>({
+    reducer: (_old, neu) => neu,
+    default: () => null,
+  }),
+  searchYearEnd: Annotation<number | null>({
+    reducer: (_old, neu) => neu,
+    default: () => null,
+  }),
   // V2 power-user opt-out: when true, the discovery_gate node auto-approves
   // (discoveryApproved={approved:true}) without firing interrupt(). Skips
   // the HITL pause between discoverer and fetcher; useful for trusted

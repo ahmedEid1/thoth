@@ -252,6 +252,43 @@ describe("run-review task", () => {
     );
   });
 
+  it("V2 — hydrates the project's year range into the initial agent state (M115)", async () => {
+    vi.mocked(db.project.findUnique).mockResolvedValue({
+      question: "Q?",
+      searchScope: "outbound",
+      searchProviders: ["openalex"],
+      searchMaxHits: 40,
+      searchYearStart: 2018,
+      searchYearEnd: 2023,
+      skipDiscoveryGate: false,
+    } as never);
+
+    // Pause immediately at plan_gate — we only care about the initial payload.
+    mocks.graphInvoke.mockResolvedValueOnce({
+      __interrupt__: [{ value: { kind: "APPROVE_PLAN", plan: { picoc: {} } } }],
+    });
+    mocks.waitForToken.mockReturnValueOnce({
+      unwrap: () => Promise.resolve({ approved: false, rejectionReason: "stop here" }),
+    });
+    // Second invoke after the (rejecting) plan decision — graph ends.
+    mocks.graphInvoke.mockResolvedValueOnce({ planApproved: { approved: false } });
+
+    const mod = await import("@/trigger/run-review");
+    const task = mod.runReviewTask as unknown as { run: (p: { runId: string }) => Promise<unknown> };
+    await task.run({ runId: "r1" });
+
+    // The first graph.invoke receives the initial state — assert the year
+    // range (and max hits) were hydrated from the project config.
+    const initialPayload = mocks.graphInvoke.mock.calls[0]![0] as {
+      searchYearStart: number | null;
+      searchYearEnd: number | null;
+      searchMaxHits: number | null;
+    };
+    expect(initialPayload.searchYearStart).toBe(2018);
+    expect(initialPayload.searchYearEnd).toBe(2023);
+    expect(initialPayload.searchMaxHits).toBe(40);
+  });
+
   it("V2 — marks the run REJECTED when the discovery gate is rejected", async () => {
     mocks.graphInvoke
       .mockResolvedValueOnce({
