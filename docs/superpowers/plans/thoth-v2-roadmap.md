@@ -146,6 +146,58 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M110 — SSRF defense hardening (real security gaps closed)
+
+**Goal:** Investigating the V2 fetcher's SSRF defense
+(`isSafeExternalUrl`, M33) — which downloads PDFs from
+provider-supplied `oaUrl`s and explicitly aims to block
+the cloud-metadata service (169.254.169.254 →
+credential theft) — found three real bypasses of that
+stated protection:
+
+1. **IPv4-mapped IPv6** —
+   `http://[::ffff:169.254.169.254]/` reached the
+   metadata service; the old check only matched `::1`.
+   (Node normalizes it to `::ffff:a9fe:a9fe`, so a
+   dotted-decimal regex misses it too.)
+2. **IPv6 private ranges** — only `::1` was caught;
+   `fe80::/10` link-local + `fc00::/7` unique-local
+   weren't.
+3. **Alt IPv4 encodings** — bare-decimal
+   (`2130706433`), hex (`0x7f000001`), octal-octet
+   (`0177.0.0.1`). (Node's URL parser canonicalizes
+   these to dotted-decimal, so the dotted check already
+   caught them — but the explicit all-numeric-labels
+   guard is defense-in-depth for runtimes that don't.)
+
+**What shipped:**
+
+- `isSafeExternalUrl` rewritten with: IPv6 bracket
+  stripping; `::1`/`::`/`fe80::`/`fc`/`fd` rejection;
+  `embeddedMappedIPv4` (parses BOTH `::ffff:a.b.c.d`
+  and Node's hex-group `::ffff:HHHH:HHHH`) → re-checks
+  the embedded IPv4; an all-numeric-label IPv4-literal
+  guard that only allows a canonical public dotted-quad.
+- `isPrivateIPv4` extracted as a shared helper.
+- 7 new tests (mapped-IPv6, IPv6 link/unique-local,
+  decimal/hex/octal encodings to internal addresses)
+  PLUS no-false-positive cases (public dotted-quad,
+  public IPv6, public mapped, all-hex-letter domains
+  like `cafe.ad`, and octal→public `0250.x` which is
+  correctly *allowed*).
+
+**Severity:** defense-in-depth — Vercel/Trigger.dev
+egress controls block the practical cases — but the
+control's whole job is to stop SSRF-to-metadata, and it
+was bypassable. DNS rebinding remains explicitly out of
+scope (needs resolution-time checks), documented.
+
+**Found by investigating, not churning:** the core
+(cite_check, cite-extract) reviewed clean; this was the
+one genuine defect a depth-pass surfaced.
+
+**Key files:** `lib/agent/nodes/fetcher.ts`, `tests/lib/agent/nodes/fetcher-ssrf.test.ts`
+
 ## V2-M109 — e2e cleanup hardening: register-for-delete before assertions
 
 **Goal:** While fixing M108 I found a latent cleanup

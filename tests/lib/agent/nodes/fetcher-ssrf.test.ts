@@ -54,4 +54,55 @@ describe("isSafeExternalUrl (SSRF defense for the V2 fetcher)", () => {
     expect(isSafeExternalUrl("not a url at all")).toBe(false);
     expect(isSafeExternalUrl("")).toBe(false);
   });
+
+  // --- M110: alternate IP encodings that inet_aton resolves to internal
+  // addresses but a naive dotted-quad check would miss. ---
+
+  it("rejects bare-decimal IPv4 encodings (2130706433 == 127.0.0.1)", () => {
+    expect(isSafeExternalUrl("http://2130706433/x")).toBe(false); // 127.0.0.1
+    expect(isSafeExternalUrl("http://3232235521/x")).toBe(false); // 192.168.0.1
+    expect(isSafeExternalUrl("http://2852039166/x")).toBe(false); // 169.254.169.254
+  });
+
+  it("rejects hex IPv4 encodings (0x7f000001 == 127.0.0.1)", () => {
+    expect(isSafeExternalUrl("http://0x7f000001/x")).toBe(false);
+    expect(isSafeExternalUrl("http://0x7f.0.0.1/x")).toBe(false);
+  });
+
+  it("rejects octal-octet IPv4 encodings that map to internal addresses", () => {
+    expect(isSafeExternalUrl("http://0177.0.0.1/x")).toBe(false); // 0177 octal = 127 → loopback
+    expect(isSafeExternalUrl("http://012.0.0.1/x")).toBe(false); // 012 octal = 10 → RFC1918
+  });
+
+  it("allows octal/decimal encodings that map to PUBLIC addresses (not over-blocking)", () => {
+    // 0250 octal = 168 → 168.168.168.168 is public; alt-encoding alone
+    // isn't a reason to block (the SSRF risk is the *destination*, not
+    // the notation). The URL parser canonicalises it to dotted-decimal.
+    expect(isSafeExternalUrl("http://0250.0250.0250.0250/x")).toBe(true);
+  });
+
+  it("rejects IPv4-mapped IPv6 to internal addresses", () => {
+    // The classic metadata bypass — must be blocked.
+    expect(isSafeExternalUrl("http://[::ffff:169.254.169.254]/x")).toBe(false);
+    expect(isSafeExternalUrl("http://[::ffff:127.0.0.1]/x")).toBe(false);
+    expect(isSafeExternalUrl("http://[::ffff:10.0.0.1]/x")).toBe(false);
+  });
+
+  it("rejects IPv6 link-local (fe80::/10) + unique-local (fc00::/7)", () => {
+    expect(isSafeExternalUrl("http://[fe80::1]/x")).toBe(false);
+    expect(isSafeExternalUrl("http://[fc00::1]/x")).toBe(false);
+    expect(isSafeExternalUrl("http://[fd12:3456::1]/x")).toBe(false);
+    expect(isSafeExternalUrl("http://[::]/x")).toBe(false); // unspecified
+  });
+
+  it("still accepts legitimate public addresses (no false positives)", () => {
+    expect(isSafeExternalUrl("http://8.8.8.8/x")).toBe(true); // public DNS, canonical quad
+    expect(isSafeExternalUrl("http://1.1.1.1/x")).toBe(true);
+    expect(isSafeExternalUrl("http://[2606:4700::1111]/x")).toBe(true); // Cloudflare public IPv6
+    expect(isSafeExternalUrl("http://[::ffff:8.8.8.8]/x")).toBe(true); // public mapped
+    // all-hex-letter domains must NOT be mistaken for hex IPs (no 0x prefix,
+    // and a real TLD label breaks the all-numeric heuristic).
+    expect(isSafeExternalUrl("https://face.example/paper.pdf")).toBe(true);
+    expect(isSafeExternalUrl("https://cafe.ad/paper.pdf")).toBe(true);
+  });
 });
