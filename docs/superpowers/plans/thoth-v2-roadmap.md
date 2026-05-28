@@ -146,6 +146,32 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M106 — Test the empty-references edge case on draft.md
+
+**Goal:** The draft.md route (M99) only appends a
+`## References` section `if (run.includedPapers.length
+> 0)`. That branch had no test — a future refactor
+could accidentally always-append the header (rendering
+an empty "## References" with no entries) and no test
+would catch it.
+
+**What shipped:**
+
+- New test: a completed run with `includedPapers: []`
+  returns 200, the draft body intact, and NO
+  "## References" header. Asserts `text.endsWith(draft)`
+  to confirm nothing is appended after the body.
+
+**Why this is worth a test:** the happy-path test
+covers the references-present case; this pins the
+references-absent case so both branches of the
+`length > 0` guard are covered. A draft with zero
+included papers is a real (if rare) state — an
+uploaded_only run where the papers gate approved
+nothing but the drafter still produced prose.
+
+**Key files:** `tests/api/runs-draft-md.test.ts`
+
 ## V2-M105 — README reflects the full citation-export story
 
 **Goal:** The README's walkthrough step 8 still

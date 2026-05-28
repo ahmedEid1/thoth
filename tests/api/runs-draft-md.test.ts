@@ -70,6 +70,29 @@ describe("GET /api/runs/[id]/draft.md", () => {
     expect(text).toContain("- **[cm_a]** First Paper — Jane Doe, John Roe (2021) · Nature · https://doi.org/10.1/a");
   });
 
+  it("omits the References section when the run has no included papers", async () => {
+    vi.mocked(requireUser).mockResolvedValue({ id: "u1" } as never);
+    vi.mocked(db.run.findUnique).mockResolvedValue({
+      draft: "# Draft with no citations",
+      createdAt: new Date("2026-05-28T14:00:00Z"),
+      completedAt: null,
+      question: "q",
+      project: { ownerId: "u1", title: "Empty" },
+      includedPapers: [],
+    } as never);
+
+    const { GET } = await import("@/app/api/runs/[id]/draft.md/route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/runs/r1/draft.md"),
+      { params: Promise.resolve({ id: "r1" }) },
+    );
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    // No included papers → no References header (don't append an empty one).
+    expect(text).not.toContain("## References");
+    expect(text.endsWith("# Draft with no citations")).toBe(true);
+  });
+
   it("returns 404 when the run has no draft yet (in-flight or rejected)", async () => {
     vi.mocked(requireUser).mockResolvedValue({ id: "u1" } as never);
     vi.mocked(db.run.findUnique).mockResolvedValue({
