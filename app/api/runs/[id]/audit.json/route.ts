@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { buildRunFilename } from "@/lib/download-filename";
 
 /**
  * Download the cite_check audit for a completed Run as JSON.
@@ -30,7 +31,8 @@ export async function GET(
       id: true,
       draft: true,
       faithfulnessScore: true,
-      project: { select: { ownerId: true } },
+      createdAt: true,
+      project: { select: { ownerId: true, title: true } },
     },
   });
   if (!run || run.project.ownerId !== user.id || !run.draft) {
@@ -67,11 +69,18 @@ export async function GET(
     claims,
   };
 
+  const filename = buildRunFilename({
+    projectTitle: run.project.title,
+    runId: id,
+    startedAt: run.createdAt,
+    suffix: "audit.json",
+  });
+
   return new NextResponse(JSON.stringify(audit, null, 2), {
     status: 200,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "content-disposition": `attachment; filename="thoth-${id}-audit.json"`,
+      "content-disposition": `attachment; filename="${filename}"`,
       "cache-control": "no-store",
     },
   });

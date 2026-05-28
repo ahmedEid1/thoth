@@ -21,7 +21,8 @@ describe("GET /api/runs/[id]/audit.json", () => {
       id: "r1",
       draft: "# Review\n\nClaim [paper_001].",
       faithfulnessScore: 0.83,
-      project: { ownerId: "u1" },
+      createdAt: new Date("2026-05-28T14:00:00Z"),
+      project: { ownerId: "u1", title: "GAT Review" },
     } as never);
     vi.mocked(db.claimCheck.findMany).mockResolvedValue([
       { claim: "A claim", paperId: "p1", verdict: "SUPPORTED", reason: "matched p.3", paperExcerpt: "verbatim span" },
@@ -37,8 +38,9 @@ describe("GET /api/runs/[id]/audit.json", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/json");
+    // M66: filename slugged from project title + run date.
     expect(res.headers.get("content-disposition")).toBe(
-      'attachment; filename="thoth-r1-audit.json"',
+      'attachment; filename="thoth-gat-review-2026-05-28.audit.json"',
     );
     expect(res.headers.get("cache-control")).toBe("no-store");
 
@@ -110,7 +112,8 @@ describe("GET /api/runs/[id]/audit.json", () => {
     vi.mocked(requireUser).mockResolvedValue({ id: "u1" } as never);
     vi.mocked(db.run.findUnique).mockResolvedValue({
       id: "r1", draft: "Review without citations.", faithfulnessScore: null,
-      project: { ownerId: "u1" },
+      createdAt: new Date("2026-05-28T14:00:00Z"),
+      project: { ownerId: "u1", title: "Empty Review" },
     } as never);
     vi.mocked(db.claimCheck.findMany).mockResolvedValue([] as never);
 

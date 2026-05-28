@@ -16,7 +16,8 @@ describe("GET /api/runs/[id]/draft.md", () => {
     vi.mocked(requireUser).mockResolvedValue({ id: "u1" } as never);
     vi.mocked(db.run.findUnique).mockResolvedValue({
       draft: "# My Review\n\nClaim [paper_001].",
-      project: { ownerId: "u1" },
+      createdAt: new Date("2026-05-28T14:00:00Z"),
+      project: { ownerId: "u1", title: "GAT Review" },
     } as never);
 
     const { GET } = await import("@/app/api/runs/[id]/draft.md/route");
@@ -27,7 +28,10 @@ describe("GET /api/runs/[id]/draft.md", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/markdown");
-    expect(res.headers.get("content-disposition")).toBe('attachment; filename="thoth-r1.md"');
+    // M66: human-readable filename — slugified project title + run date.
+    expect(res.headers.get("content-disposition")).toBe(
+      'attachment; filename="thoth-gat-review-2026-05-28.md"',
+    );
     // Cache-Control: no-store so a re-run's new draft isn't masked by a
     // cached old download.
     expect(res.headers.get("cache-control")).toBe("no-store");

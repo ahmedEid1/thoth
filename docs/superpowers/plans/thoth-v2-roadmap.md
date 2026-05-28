@@ -146,6 +146,46 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M66 — Human-readable download filenames
+
+**Goal:** The three download routes (M34 draft.md, M35
+audit.json, M37 citations.bib) all used filenames of the
+form `thoth-<runId>.<ext>`. The run id is opaque to users
+(a cuid), so a Downloads folder full of `thoth-cm123...`
+files was impossible to triage without opening each. Make
+filenames carry the project title + date so they sort +
+read sensibly.
+
+**What shipped:**
+
+- New `lib/download-filename.ts` with a `buildRunFilename
+  ({ projectTitle, runId, startedAt, suffix })` helper.
+  Output: `thoth-<slug>-<YYYY-MM-DD>.<suffix>`.
+- Slug rules (mirroring GitHub / NPM): lowercased,
+  non-alphanumeric collapsed to `-`, leading/trailing
+  `-` stripped, capped at 60 chars with a word-boundary
+  cut so we don't slice mid-word.
+- Empty title falls back to the run id (so a title of
+  `"!!!"` doesn't render `thoth--2026-05-28.md`).
+- Invalid `startedAt` falls back to `unknown-date`
+  (defensive against unexpected null bubbling up).
+- UTC date components so a server in any TZ produces the
+  same filename for the same run.
+- Suffix uses a `.` separator so the OS detects the file
+  type — `thoth-foo-2026-05-28.md` not `-md`. The two
+  multi-extension cases (`audit.json`, `citations.bib`)
+  render with their extensions intact.
+- All three download routes swapped to use the helper.
+  Their existing tests updated to assert the new
+  filename format with project title + date.
+- 8 new unit tests in `tests/lib/download-filename.test.ts`
+  cover: happy slug + date concat, both multi-extension
+  suffixes, non-alphanumeric collapse + trim,
+  word-boundary truncation, empty-title fallback,
+  invalid-date fallback, UTC date stability.
+
+**Key files:** `lib/download-filename.ts`, `app/api/runs/[id]/draft.md/route.ts`, `app/api/runs/[id]/audit.json/route.ts`, `app/api/runs/[id]/citations.bib/route.ts`, `tests/lib/download-filename.test.ts`, `tests/api/runs-{draft-md,audit-json,citations-bib}.test.ts`
+
 ## V2-M65 — Bulk selection helpers on PapersApprovalCard
 
 **Goal:** Symmetric with M64. The V1 papers-approval gate

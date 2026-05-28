@@ -17,7 +17,8 @@ describe("GET /api/runs/[id]/citations.bib", () => {
     vi.mocked(db.run.findUnique).mockResolvedValue({
       id: "r1",
       draft: "# Review",
-      project: { ownerId: "u1" },
+      createdAt: new Date("2026-05-28T14:00:00Z"),
+      project: { ownerId: "u1", title: "GAT Review" },
       includedPapers: [
         {
           id: "ip1",
@@ -48,8 +49,9 @@ describe("GET /api/runs/[id]/citations.bib", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/x-bibtex");
+    // M66: filename slugged from project title + run date.
     expect(res.headers.get("content-disposition")).toBe(
-      'attachment; filename="thoth-r1-citations.bib"',
+      'attachment; filename="thoth-gat-review-2026-05-28.citations.bib"',
     );
 
     const body = await res.text();
@@ -108,7 +110,8 @@ describe("GET /api/runs/[id]/citations.bib", () => {
     vi.mocked(requireUser).mockResolvedValue({ id: "u1" } as never);
     vi.mocked(db.run.findUnique).mockResolvedValue({
       id: "r1", draft: "Review with no citations.",
-      project: { ownerId: "u1" },
+      createdAt: new Date("2026-05-28T14:00:00Z"),
+      project: { ownerId: "u1", title: "Empty Review" },
       includedPapers: [],
     } as never);
 
