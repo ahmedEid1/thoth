@@ -125,6 +125,38 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M127 — Make golden 017 completable on the free tier (cap + paid override)
+
+**Goal:** Let the 017 outbound pipeline-smoke golden actually COMPLETE (and so
+write EvalRun rows) on Mistral's free tier, while staying scalable on a paid
+provider — the natural follow-up to M126's reframe.
+
+**Root cause:** the eval's `runHeadless` never set `state.searchMaxHits`, so an
+outbound golden always used the discoverer's default cap (50). 50 discovered
+papers → ~50 sequential smart-tier screener calls (+ assessor + cite_check fan-
+out) → free-tier rate-limit mid-run → run dies → 0 EvalRun rows. (Confirmed live
+in M126: 017 reached `status=SCREENING` then `Rate limit exceeded`.)
+
+**What shipped:**
+- **Schema** (`lib/eval/golden-schema.ts`): optional `searchMaxHits` (positive
+  int) on a golden.
+- **Resolver** (`lib/eval/search-max-hits.ts`): `resolveSearchMaxHits(golden)` —
+  precedence `EVAL_SEARCH_MAX_HITS` env > golden's `searchMaxHits` > undefined
+  (discoverer default 50). The env knob is the "paid provider, bigger set"
+  override (point `LLM_PROVIDER` at a higher-RPS tier, set e.g. `EVAL_SEARCH_MAX_HITS=50`).
+- **Wiring**: `run-evals.ts` resolves it and passes it to `runHeadless`, which
+  seeds `state.searchMaxHits`; the discoverer already honours that knob.
+- **Golden** (`017-…​.yaml`): `searchMaxHits: 4` — few enough papers that the
+  whole screener→assessor→drafter→critic→cite_check chain finishes in budget.
+
+**Tests:** `tests/lib/eval/search-max-hits.test.ts` (env-override precedence,
+invalid-env fallback, undefined default) + `golden-schema.test.ts` (accepts
+searchMaxHits, rejects non-positive/non-integer, defaults undefined).
+
+**Key files:** `lib/eval/golden-schema.ts`, `lib/eval/search-max-hits.ts`,
+`lib/eval/headless-runner.ts`, `scripts/run-evals.ts`,
+`evals/golden/017-rag-hallucination-grounding.yaml`
+
 ## V2-M126 — Retry transient schema-mismatch in runLLM (outbound-run robustness)
 
 **Goal:** Stop a single transient Mistral structured-output miss from failing

@@ -17,13 +17,20 @@ picoc:
 # searchScope: outbound.
 #
 # NOT in the weekly cron smoke set — run manually via `workflow_dispatch:
-# goldens=all` on a fresh-quota window. The full 50-paper screen makes ~50+
-# sequential smart-tier calls and rate-limits out on Mistral's free tier mid-run
-# (see M126), so discovery_recall can't be relied on as a cron baseline.
+# goldens=all`. `searchMaxHits` below caps discovery small so the FULL pipeline
+# (screener → assessor → drafter → critic → cite_check) completes inside
+# Mistral's free-tier budget — an uncapped ~50-paper run makes ~50+ sequential
+# smart-tier calls and rate-limits out mid-run (see M126). To exercise a larger
+# set on a paid / higher-RPS provider, set EVAL_SEARCH_MAX_HITS (e.g. 50).
+# discovery_recall stays informational either way.
 searchScope: outbound
 searchProviders:
   - openalex
   - arxiv
+
+# Free-tier-safe cap: few enough papers that the per-paper screener + assessor
+# fan-out finishes within the free budget. EVAL_SEARCH_MAX_HITS overrides this.
+searchMaxHits: 4
 
 # INFORMATIONAL, not a calibrated gate. These five ids are on-topic reference
 # papers (RAG hallucination / factual grounding / RAG evaluation), but exact-DOI

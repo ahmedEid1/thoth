@@ -145,4 +145,30 @@ describe("GoldenQuestionSchema", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  // V2 — searchMaxHits lets an outbound golden cap the discoverer small enough
+  // that the full pipeline completes on Mistral's free tier (the per-paper
+  // screener/assessor fan-out otherwise rate-limits out). Optional; v1 omits it.
+  it("accepts an optional searchMaxHits for outbound smoke goldens", () => {
+    const r = GoldenQuestionSchema.safeParse({
+      ...validGolden,
+      searchScope: "outbound",
+      searchProviders: ["arxiv"],
+      searchMaxHits: 4,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.searchMaxHits).toBe(4);
+  });
+
+  it("rejects a non-positive or non-integer searchMaxHits", () => {
+    expect(GoldenQuestionSchema.safeParse({ ...validGolden, searchMaxHits: 0 }).success).toBe(false);
+    expect(GoldenQuestionSchema.safeParse({ ...validGolden, searchMaxHits: -2 }).success).toBe(false);
+    expect(GoldenQuestionSchema.safeParse({ ...validGolden, searchMaxHits: 2.5 }).success).toBe(false);
+  });
+
+  it("defaults searchMaxHits to undefined for v1 goldens", () => {
+    const r = GoldenQuestionSchema.safeParse(validGolden);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.searchMaxHits).toBeUndefined();
+  });
 });

@@ -41,6 +41,12 @@ export const GoldenQuestionSchema = z
     // Omitted (the default) on every V1 golden → uploaded_only, unchanged.
     searchScope: z.enum(["uploaded_only", "outbound", "hybrid"]).optional(),
     searchProviders: z.array(z.enum(["openalex", "arxiv", "exa"])).optional(),
+    // V2 — per-golden cap on discovered papers (the discoverer's `searchMaxHits`
+    // knob). Kept small on free-tier outbound goldens so the per-paper screener
+    // + assessor fan-out completes inside Mistral's free budget; the
+    // `EVAL_SEARCH_MAX_HITS` env overrides it for a paid/higher-RPS provider
+    // (see lib/eval/search-max-hits.ts). Omitted → discoverer default (50).
+    searchMaxHits: z.number().int().positive().optional(),
     metadata: MetadataSchema,
   })
   // `papers[].id` must be unique within the question — `lib/eval/seed-corpus.ts`

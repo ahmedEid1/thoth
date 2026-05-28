@@ -4,6 +4,7 @@ import { execSync } from "node:child_process";
 import { loadGolden } from "@/lib/eval/golden-loader";
 import { seedEvalProject } from "@/lib/eval/seed-corpus";
 import { runHeadless } from "@/lib/eval/headless-runner";
+import { resolveSearchMaxHits } from "@/lib/eval/search-max-hits";
 import {
   citationRecall,
   citationPrecision,
@@ -111,6 +112,9 @@ async function main(): Promise<void> {
         // meaningful; V1 goldens leave these undefined → uploaded_only.
         searchScope: g.searchScope,
         searchProviders: g.searchProviders,
+        // Small per-golden cap (free-tier safe) unless EVAL_SEARCH_MAX_HITS
+        // overrides it for a paid/higher-RPS provider.
+        searchMaxHits: resolveSearchMaxHits(g),
       });
       // Clear the handle in `finally` so a normal completion does not leave a
       // live timer pinning the event loop. Without the clearTimeout, every

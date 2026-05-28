@@ -17,6 +17,13 @@ export type HeadlessRunArgs = {
    */
   searchScope?: SearchScope;
   searchProviders?: Array<"openalex" | "arxiv" | "exa">;
+  /**
+   * V2 — cap on discovered papers (the discoverer's `searchMaxHits`). Keeps the
+   * per-paper screener/assessor fan-out small enough to complete on Mistral's
+   * free tier. Omitted → state.searchMaxHits stays null → discoverer falls back
+   * to env.MAX_DISCOVERED_PAPERS_PER_RUN.
+   */
+  searchMaxHits?: number;
 };
 
 export type HeadlessRunResult = AgentState & {
@@ -71,6 +78,7 @@ export async function runHeadless(args: HeadlessRunArgs): Promise<HeadlessRunRes
     candidateCorpusItems,
     searchScope: scope,
     searchProviders: args.searchProviders ?? [],
+    searchMaxHits: args.searchMaxHits ?? null,
   };
 
   let state: AgentState | undefined;
