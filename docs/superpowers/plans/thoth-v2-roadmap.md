@@ -146,6 +146,47 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M100 — citedPaperTitle on audit claims (HTTP + MCP)
+
+**Goal:** The citation audit's per-claim shape had
+`citedPaperId` (an opaque corpusItemId) but no title.
+A researcher reading the downloaded audit.json — or an
+AI assistant calling get_citation_audit — saw
+`citedPaperId: "cm123abc"` with no way to know which
+paper a verdict was about.
+
+**What shipped:**
+
+- New `lib/cited-paper-titles.ts`:
+  `loadCitedPaperTitles(paperIds)` de-dups the ids,
+  one `corpusItem.findMany` lookup, returns a
+  `Map<id, title | null>` (title via the shared
+  `extractPaperTitle`; null for no-heading / deleted
+  items).
+- HTTP `audit.json` route: each claim gains
+  `citedPaperTitle`.
+- MCP `get_citation_audit`: same field added to the
+  output Zod schema + handler (surface symmetry with
+  the M77 metadata enrichment).
+- 5 helper tests (empty-list-no-query, mapping,
+  de-dup, missing-row, no-heading) + both consumer
+  test suites updated with a `corpusItem.findMany`
+  mock + `citedPaperTitle` assertions (including the
+  null case for a deleted paper).
+
+**Why a shared helper:** both surfaces need the exact
+same id→title resolution; a helper keeps them from
+diverging (the lesson from M96, where two title
+extractions had silently drifted).
+
+**This completes the citation-export arc** (M95 escape
+· M96 shared title · M97 author/year/venue · M98 keys
+resolve · M99 .md references · M100 audit titles). Every
+citation surface — .bib, .md, audit.json, MCP — now
+carries human-readable, self-consistent paper identity.
+
+**Key files:** `lib/cited-paper-titles.ts`, `app/api/runs/[id]/audit.json/route.ts`, `lib/mcp/tools/get-citation-audit.ts`, `tests/lib/cited-paper-titles.test.ts`, `tests/api/runs-audit-json.test.ts`, `tests/lib/mcp/tools/get-citation-audit.test.ts`
+
 ## V2-M99 — References appendix on the draft .md download
 
 **Goal:** With M98 the draft cites papers as

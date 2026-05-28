@@ -4,6 +4,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     run: { findFirst: vi.fn() },
     claimCheck: { findMany: vi.fn() },
+    corpusItem: { findMany: vi.fn() },
   },
 }));
 
@@ -28,6 +29,11 @@ describe("getCitationAudit", () => {
       { paperId: "p2", claim: "Another", verdict: "UNSUPPORTED", reason: "not found", paperExcerpt: null },
       { paperId: "p3", claim: "Unclear", verdict: "UNCLEAR", reason: "ambiguous", paperExcerpt: null },
     ] as never);
+    // M100: corpus lookup for citedPaperTitle. p3 has no row → null.
+    vi.mocked(db.corpusItem.findMany).mockResolvedValue([
+      { id: "p1", parsedMarkdown: "# First Paper\n\nbody" },
+      { id: "p2", parsedMarkdown: "# Second Paper\n\nbody" },
+    ] as never);
 
     const res = await getCitationAudit(
       { reviewId: "r1" },
@@ -49,9 +55,9 @@ describe("getCitationAudit", () => {
       unsupportedCount: 1,
       unclearCount: 1,
       claims: [
-        { claimText: "A claim", citedPaperId: "p1", verdict: "supported", reason: "found in page 3", supportingSpan: "supporting span" },
-        { claimText: "Another", citedPaperId: "p2", verdict: "unsupported", reason: "not found", supportingSpan: null },
-        { claimText: "Unclear", citedPaperId: "p3", verdict: "unclear", reason: "ambiguous", supportingSpan: null },
+        { claimText: "A claim", citedPaperId: "p1", citedPaperTitle: "First Paper", verdict: "supported", reason: "found in page 3", supportingSpan: "supporting span" },
+        { claimText: "Another", citedPaperId: "p2", citedPaperTitle: "Second Paper", verdict: "unsupported", reason: "not found", supportingSpan: null },
+        { claimText: "Unclear", citedPaperId: "p3", citedPaperTitle: null, verdict: "unclear", reason: "ambiguous", supportingSpan: null },
       ],
     });
   });

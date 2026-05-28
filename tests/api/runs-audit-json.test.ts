@@ -6,6 +6,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     run: { findUnique: vi.fn() },
     claimCheck: { findMany: vi.fn() },
+    corpusItem: { findMany: vi.fn() },
   },
 }));
 
@@ -30,6 +31,12 @@ describe("GET /api/runs/[id]/audit.json", () => {
       { claim: "A claim", paperId: "p1", verdict: "SUPPORTED", reason: "matched p.3", paperExcerpt: "verbatim span" },
       { claim: "B claim", paperId: "p2", verdict: "UNSUPPORTED", reason: "not found", paperExcerpt: null },
       { claim: "C claim", paperId: "p3", verdict: "UNCLEAR", reason: "ambiguous", paperExcerpt: null },
+    ] as never);
+    // M100: corpus lookup for citedPaperTitle. p1 + p2 resolve; p3 has
+    // no row (deleted) so its title is null.
+    vi.mocked(db.corpusItem.findMany).mockResolvedValue([
+      { id: "p1", parsedMarkdown: "# First Paper\n\nbody" },
+      { id: "p2", parsedMarkdown: "# Second Paper\n\nbody" },
     ] as never);
 
     const { GET } = await import("@/app/api/runs/[id]/audit.json/route");
@@ -58,7 +65,7 @@ describe("GET /api/runs/[id]/audit.json", () => {
       supportedCount: number;
       unsupportedCount: number;
       unclearCount: number;
-      claims: Array<{ claimText: string; verdict: string }>;
+      claims: Array<{ claimText: string; verdict: string; citedPaperId: string; citedPaperTitle: string | null }>;
     };
     expect(body.reviewId).toBe("r1");
     // M75: audit JSON stamps with project + question + run timestamps
@@ -79,6 +86,11 @@ describe("GET /api/runs/[id]/audit.json", () => {
     expect(body.claims[0]!.verdict).toBe("supported");
     expect(body.claims[1]!.verdict).toBe("unsupported");
     expect(body.claims[2]!.verdict).toBe("unclear");
+    // M100: each claim carries the cited paper's title (null when the
+    // corpus item has no row / no heading).
+    expect(body.claims[0]!.citedPaperTitle).toBe("First Paper");
+    expect(body.claims[1]!.citedPaperTitle).toBe("Second Paper");
+    expect(body.claims[2]!.citedPaperTitle).toBeNull();
   });
 
   it("returns 404 when the run has no draft yet (cite_check hasn't run)", async () => {

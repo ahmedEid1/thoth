@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { mcpTool, NotFoundError } from "@/lib/mcp/handler";
 import type { McpUserCtx } from "@/lib/mcp/auth";
+import { loadCitedPaperTitles } from "@/lib/cited-paper-titles";
 
 export const getCitationAuditInput = z.object({
   reviewId: z.string().min(1),
@@ -24,6 +25,10 @@ export const getCitationAuditOutput = z.object({
   claims: z.array(z.object({
     claimText: z.string(),
     citedPaperId: z.string(),
+    // M100: human-readable title for the cited paper so an AI assistant
+    // can talk about "the GAT paper" not "paper cm123abc". Null when the
+    // corpus item has no usable heading / was deleted.
+    citedPaperTitle: z.string().nullable(),
     verdict: z.enum(["supported", "unsupported", "unclear"]),
     reason: z.string(),
     supportingSpan: z.string().nullable(),
@@ -59,9 +64,12 @@ export async function getCitationAudit(
     orderBy: { createdAt: "asc" },
   });
 
+  const titleById = await loadCitedPaperTitles(rows.map((r) => r.paperId));
+
   const claims = rows.map(r => ({
     claimText: r.claim,
     citedPaperId: r.paperId,
+    citedPaperTitle: titleById.get(r.paperId) ?? null,
     verdict: VERDICT_MAP[r.verdict] ?? "unclear",
     reason: r.reason,
     supportingSpan: r.paperExcerpt,

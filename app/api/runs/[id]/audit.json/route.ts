@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { buildRunFilename } from "@/lib/download-filename";
+import { loadCitedPaperTitles } from "@/lib/cited-paper-titles";
 
 /**
  * Download the cite_check audit for a completed Run as JSON.
@@ -53,9 +54,14 @@ export async function GET(
     UNCLEAR: "unclear",
   };
 
+  // Resolve cited paper ids → titles so each claim is self-describing
+  // (the bare corpusItemId is opaque to a researcher reading the JSON).
+  const titleById = await loadCitedPaperTitles(claimChecks.map((c) => c.paperId));
+
   const claims = claimChecks.map((c) => ({
     claimText: c.claim,
     citedPaperId: c.paperId,
+    citedPaperTitle: titleById.get(c.paperId) ?? null,
     verdict: VERDICT_MAP[c.verdict] ?? "unclear",
     reason: c.reason,
     supportingSpan: c.paperExcerpt,
