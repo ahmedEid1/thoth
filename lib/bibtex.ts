@@ -21,12 +21,25 @@ export type BibTexPaper = {
 };
 
 /**
- * BibTeX values escape backslashes + braces + the `@` symbol. The
- * canonical character to wrap in is `{}`, which lets nearly any
- * content through unescaped.
+ * Escape BibTeX special characters inside a `{...}`-wrapped value.
+ *
+ * Always-escape: `\` `{` `}` `@` `%` `$` `&` `#`.
+ *   - `\` `{` `}` would break the wrapper or be reinterpreted.
+ *   - `@` introduces a new entry in some parsers.
+ *   - `%` is BibTeX's line-comment marker — UNESCAPED, "Cost 50% off"
+ *     would comment out the closing `}` and corrupt the whole entry.
+ *   - `$` enters LaTeX math mode at render time. Escaping with `\$`
+ *     is the universally-honoured literal.
+ *   - `&` `#` are reserved LaTeX columns/parameters; `\&` `\#` is the
+ *     universal literal form.
+ *
+ * Not escaped: `_` `^` `~` — these are LaTeX specials too, but the
+ * canonical fix in BibTeX practice is to wrap the whole value (which
+ * we do) or use a dedicated LaTeX-Unicode renderer downstream. The
+ * surface we ship is BibTeX-correctness, not pretty-LaTeX-rendering.
  */
 function bibtexEscape(value: string): string {
-  return value.replace(/[\\{}@]/g, (m) => `\\${m}`);
+  return value.replace(/[\\{}@%$&#]/g, (m) => `\\${m}`);
 }
 
 function sanitiseKey(key: string): string {

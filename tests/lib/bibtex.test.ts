@@ -80,6 +80,20 @@ describe("paperToBibtex", () => {
     expect(out).toContain("title = {A \\{brace\\} and a \\\\backslash and an \\@symbol}");
   });
 
+  it("escapes %, $, &, # in title — without escaping, % would comment out the closing brace", () => {
+    const out = paperToBibtex({
+      citationKey: "paper_007",
+      // Title has every additional special added by M95.
+      title: "Cost 50% off & $5 discount #urgent",
+      externalDoi: null,
+      externalArxivId: null,
+      source: null,
+    });
+    expect(out).toContain(
+      "title = {Cost 50\\% off \\& \\$5 discount \\#urgent}",
+    );
+  });
+
   it("sanitises non-alphanumeric chars in citation key", () => {
     const out = paperToBibtex({
       citationKey: "10.1/some-doi/with/slashes",

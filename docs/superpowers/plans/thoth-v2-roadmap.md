@@ -146,6 +146,38 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M95 — Fix BibTeX escape: %, $, &, # were unescaped
+
+**Goal:** Real correctness bug in `bibtexEscape`. The
+function escaped `\`, `{`, `}`, `@` but missed `%`,
+`$`, `&`, `#`. The most dangerous omission was `%`:
+BibTeX treats `%` as a line-comment marker, so a
+paper titled `"Cost 50% off"` would render as
+`title = {Cost 50% off}` and the `%` would comment
+out the closing `}` — corrupting the entry and
+likely the whole .bib file downstream of it.
+
+**What shipped:**
+
+- `bibtexEscape` regex extended from `[\\{}@]` to
+  `[\\{}@%$&#]`. Each gets `\`-prefixed.
+- JSDoc updated to explain WHY each character needs
+  escaping (line comment, math mode, LaTeX column,
+  LaTeX parameter), and why `_`, `^`, `~` are
+  *deliberately not* escaped (the `{}` wrapper
+  + downstream LaTeX renderers handle them).
+- 1 new unit test asserts escaping for a title
+  combining all four newly-handled chars.
+
+**Why this slipped:** the original M37 implementation
+only thought about ASCII syntax characters (`{}`,
+`@`). The semantic specials (`%` for comments, `$`
+for math) come from BibTeX/LaTeX conventions, not
+syntax — easy to miss until a paper title with `%`
+shows up.
+
+**Key files:** `lib/bibtex.ts`, `tests/lib/bibtex.test.ts`
+
 ## V2-M94 — Hoist `new Date(lastRun.createdAt)` on the evals page
 
 **Goal:** Same pattern as M93, applied to the public
