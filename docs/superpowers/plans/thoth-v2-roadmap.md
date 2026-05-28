@@ -146,6 +146,41 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M105 — README reflects the full citation-export story
+
+**Goal:** The README's walkthrough step 8 still
+described only "a Download .md link" + the
+faithfulness widget — written before the M95-M104
+citation-export arc. It undersold what the app now
+does: three rich downloads + a References section +
+named citations.
+
+**What shipped:**
+
+- Step 8 rewritten to describe:
+    - the on-page References section (M102) resolving
+      inline `[paper_id]` markers.
+    - all three downloads — `.md` (provenance header
+      + references), `.bib` (author/year/journal/doi,
+      keyed to match the draft so it drops into LaTeX),
+      `.json` (structured audit).
+    - the faithfulness widget now shows cited paper
+      titles (M101).
+
+**Also verified (no code change needed):** audited the
+live e2e specs against this session's UI changes.
+Playwright's `getByRole` converts the name op from `=`
+to `*=` (substring) for internal role selectors when
+`exact` is unset (confirmed in
+`injectedScriptSource.js` `queryRole`), so the M74/M82
+heading scope-badges + sr-only labels do NOT break
+`getByRole("heading", { name: title })`. `getByText`
+is substring by default, so the M86 "Rejected: "
+prefix doesn't break `getByText(reason)`. The e2e
+suite remains consistent with the UI.
+
+**Key files:** `README.md`
+
 ## V2-M104 — Showcase page gets references + named citations
 
 **Goal:** The public `/showcase` exemplar — the page
