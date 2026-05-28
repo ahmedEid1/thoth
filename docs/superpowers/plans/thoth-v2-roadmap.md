@@ -146,6 +146,33 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M85 — relativeTime: fix the 360-364 day "this year" hole
+
+**Goal:** M55's `relativeTime()` had a tier-ordering
+bug. For inputs between 360 and 364 days:
+  - `months = Math.floor(days / 30)` = 12, so the
+    `months < 12` check failed.
+  - `years = Math.floor(days / 365)` = 0, so the
+    fallback returned `format(-0, "year")` which Intl
+    renders as `"this year"` (with `numeric: "auto"`).
+A timestamp from a year ago rendering as "this year" is
+the opposite of useful.
+
+**What shipped:**
+
+- Year-boundary check moved BEFORE the month tier. If
+  `days >= 365`, compute years from days. Otherwise
+  (30..364 days), compute months from days — which can
+  legitimately produce "12 months ago" for the 360-364
+  day window.
+- Three new test cases (360 days, 364 days, 365 days)
+  pin the boundary. The 365 days case asserts "last
+  year" — `Intl.RelativeTimeFormat` with
+  `numeric: "auto"` renders -1 year as "last year",
+  not "1 year ago".
+
+**Key files:** `lib/relative-time.ts`, `tests/lib/relative-time.test.ts`
+
 ## V2-M84 — compactCount escalates "1000k" → "1.0M"
 
 **Goal:** M60 introduced `compactCount(n)`. The 10k..1M

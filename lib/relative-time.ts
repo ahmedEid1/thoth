@@ -28,8 +28,15 @@ export function relativeTime(thenMs: number, nowMs: number, locale = "en"): stri
   if (hours < 24) return rtf.format(-hours, "hour");
   const days = Math.floor(hours / 24);
   if (days < 30) return rtf.format(-days, "day");
+  // Check the year boundary FIRST: between 360-364 days, months/30 still
+  // floors to 12 (`months < 12` false), but days/365 floors to 0 — the
+  // old order returned "0 years ago" / "this year". Year-first means
+  // 365+ days always renders as a real year count, and the month tier
+  // can legitimately produce "12 months ago" for 360-364 days.
+  if (days >= 365) {
+    const years = Math.floor(days / 365);
+    return rtf.format(-years, "year");
+  }
   const months = Math.floor(days / 30);
-  if (months < 12) return rtf.format(-months, "month");
-  const years = Math.floor(days / 365);
-  return rtf.format(-years, "year");
+  return rtf.format(-months, "month");
 }

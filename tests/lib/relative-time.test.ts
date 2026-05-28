@@ -31,4 +31,15 @@ describe("relativeTime", () => {
     expect(relativeTime(now + 5_000, now)).toBe("just now");
     expect(relativeTime(now + 60_000, now)).toBe("just now");
   });
+
+  it("handles the 360-364 day window without rendering 'this year' / '0 years ago'", () => {
+    // 360 days: months/30 = 12 (not <12), days/365 = 0 — the old
+    // implementation returned "this year" via Intl with numeric:auto.
+    // Fixed: year-boundary checked first; for <365 days fall through
+    // to the months tier which legitimately produces "12 months ago".
+    expect(relativeTime(now - 360 * 86_400_000, now)).toBe("12 months ago");
+    expect(relativeTime(now - 364 * 86_400_000, now)).toBe("12 months ago");
+    // 365 days renders as "last year" via Intl with numeric:auto.
+    expect(relativeTime(now - 365 * 86_400_000, now)).toBe("last year");
+  });
 });
