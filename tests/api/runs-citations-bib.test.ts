@@ -24,6 +24,7 @@ describe("GET /api/runs/[id]/citations.bib", () => {
       includedPapers: [
         {
           id: "ip1",
+          corpusItemId: "cm_corpus_a",
           corpusItem: {
             source: "corpus/p1/a.pdf",
             externalDoi: "10.1/test",
@@ -35,6 +36,7 @@ describe("GET /api/runs/[id]/citations.bib", () => {
         },
         {
           id: "ip2",
+          corpusItemId: "cm_corpus_b",
           corpusItem: {
             source: "arxiv:arxiv:2201.11903",
             externalDoi: null,
@@ -65,9 +67,11 @@ describe("GET /api/runs/[id]/citations.bib", () => {
     );
 
     const body = await res.text();
-    // Citation keys follow the draft's paper_NNN convention (zero-padded).
-    expect(body).toContain("@article{paper_001,");
-    expect(body).toContain("@misc{paper_002,");
+    // M98: citation keys are the corpusItemId — matching the `[<id>]`
+    // markers the drafter writes into the review, so the .bib resolves
+    // against the draft. (Was paper_NNN, which never matched.)
+    expect(body).toContain("@article{cm_corpus_a,");
+    expect(body).toContain("@misc{cm_corpus_b,");
     // Titles pulled from the first '# ' heading in each parsedMarkdown.
     expect(body).toContain("title = {First paper title}");
     expect(body).toContain("title = {Chain of thought prompting}");

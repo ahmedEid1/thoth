@@ -40,6 +40,13 @@ export async function GET(
         orderBy: { createdAt: "asc" },
         select: {
           id: true,
+          // The drafter cites papers by corpusItemId (see
+          // lib/prompts/draft-review.ts + assessor.ts: claim.includedPaperId
+          // = inc.corpusItemId). The BibTeX citation key MUST be this same
+          // id so a researcher can search-replace the draft's `[<id>]`
+          // markers against the .bib (M98 — was `paper_NNN`, which never
+          // matched the draft).
+          corpusItemId: true,
           corpusItem: {
             select: {
               source: true,
@@ -64,19 +71,19 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const papers: BibTexPaper[] = run.includedPapers.map((ip, idx) => {
+  const papers: BibTexPaper[] = run.includedPapers.map((ip) => {
     // Shared title extraction (lib/paper-title.ts) — same sanitisation
     // the corpus-list UI uses, so a title like `# **Bold**` doesn't
     // leak literal asterisks into the BibTeX. Handles H1 AND H2 (the
     // old inline version only matched `# `, missing H2-only OCR output).
     const title = extractPaperTitle(ip.corpusItem.parsedMarkdown);
-    // Citation key matches the `paper_NNN` pattern the assessor uses
-    // when writing claims to the draft. assessor.ts numbers them in
-    // include-list order, so we match that here.
-    const citationKey = `paper_${String(idx + 1).padStart(3, "0")}`;
+    // Citation key = corpusItemId, matching the `[<id>]` markers the
+    // drafter writes into the review (see schema comment above). This is
+    // what makes the .bib useful: paste the draft into LaTeX, drop in
+    // the .bib, and every `[<id>]` resolves.
     const discovered = ip.corpusItem.discoveredAs;
     return {
-      citationKey,
+      citationKey: ip.corpusItemId,
       title,
       externalDoi: ip.corpusItem.externalDoi,
       externalArxivId: ip.corpusItem.externalArxivId,

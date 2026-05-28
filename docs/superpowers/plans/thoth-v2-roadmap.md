@@ -146,6 +146,49 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M98 — BibTeX citation keys match the draft's `[paper_id]` markers (real bug)
+
+**Goal / the bug:** The whole value proposition of the
+`.bib` download is "paste the draft into LaTeX, drop in
+the .bib, every citation resolves." But it didn't —
+because the keys didn't match.
+
+- The drafter writes citations as `[<corpusItemId>]`
+  (see `lib/prompts/draft-review.ts` line 17 "paper_id
+  is the corpus item id" + `assessor.ts`:
+  `claim.includedPaperId = inc.corpusItemId`). So the
+  draft markdown contains `[cm123abc]`-style markers.
+- The `.bib` route (M37) generated keys as
+  `paper_${idx+1}` → `@article{paper_001,...}`.
+- These never matched. A researcher pasting the draft +
+  .bib into LaTeX would get **every citation
+  undefined** — the .bib was decorative, not functional.
+
+The M37 comment even *claimed* "citation key matches the
+paper_NNN pattern the assessor uses" — but the assessor
+never used paper_NNN. The comment was wrong from day one.
+
+**What shipped:**
+
+- `.bib` route now sets `citationKey = ip.corpusItemId`
+  — the exact id the drafter cites. Added `corpusItemId`
+  to the IncludedPaper select.
+- Removed the now-unused `idx` map parameter.
+- `sanitiseKey` (M37) already handles cuid-shaped keys
+  (alphanumeric pass straight through), so no escaping
+  change needed.
+- Route test fixtures gain `corpusItemId`; assertions
+  check `@article{cm_corpus_a,` + `@misc{cm_corpus_b,`
+  instead of the bogus paper_NNN.
+
+**How this was found:** tracing the M95→M96→M97 BibTeX
+trail back to "does the key actually match the draft?"
+— it didn't. The most consequential fix in the BibTeX
+chain: the prior three made the entries *clean*, this
+one makes them *resolve*.
+
+**Key files:** `app/api/runs/[id]/citations.bib/route.ts`, `tests/api/runs-citations-bib.test.ts`
+
 ## V2-M97 — BibTeX entries gain author / year / venue
 
 **Goal:** The exported `.bib` only had title + DOI +
