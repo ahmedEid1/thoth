@@ -4,19 +4,17 @@
  * need a reference clock (relative-time labels, in-progress-step
  * durations, etc).
  *
- * React 19's `react-hooks/purity` rule flags `Date.now()` as impure when
- * called in a component's render path — true in client components,
- * which can re-render arbitrarily many times, but server components are
- * invoked once per request, so a wall-clock read at render time is
- * exactly what's needed.
- *
- * Centralising the eslint-disable here means individual server pages
- * don't each need their own disable comment + justification. They just
- * call `nowSnapshot()` and the lint exemption lives in one place.
+ * React 19's `react-hooks/purity` rule flags `Date.now()` when it's
+ * called *inside a component/hook render body*. Calling it here — in a
+ * plain module-level function — sidesteps the rule entirely (the lint
+ * never fires on non-component code), which is the whole point: server
+ * pages call `nowSnapshot()` instead of inlining `Date.now()` in their
+ * render, so no per-site eslint-disable is needed. Server components run
+ * once per request, so a wall-clock read at render time is exactly what
+ * a relative-time label / in-progress duration needs.
  *
  * Do NOT use in client components — there, prefer a `useEffect` +
  * `useState` ticker so the displayed time stays consistent with React's
  * re-render contract.
  */
-// eslint-disable-next-line react-hooks/purity -- intentional: this helper exists precisely to encapsulate the wall-clock read in server-component renders. See JSDoc above for context.
 export const nowSnapshot = (): number => Date.now();

@@ -146,6 +146,35 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M103 — Remove stale eslint-disable in lib/now.ts
+
+**Goal:** `pnpm lint` emitted a warning: "Unused
+eslint-disable directive (no problems were reported from
+'react-hooks/purity')" on `lib/now.ts:21`. M80's
+assumption was wrong — the `react-hooks/purity` rule only
+fires inside component/hook *render bodies*, not on a
+plain module-level function. So `nowSnapshot`'s
+`Date.now()` was never flagged; the disable directive was
+dead from the moment it was written.
+
+**What shipped:**
+
+- Removed the unused `eslint-disable-next-line
+  react-hooks/purity` directive.
+- Rewrote the JSDoc to state the actual mechanism: the
+  helper sidesteps the rule by moving `Date.now()` out
+  of render bodies into plain module code (where the
+  rule doesn't apply), rather than "centralising a
+  disable" (there was nothing to disable).
+
+**Why it matters:** a stale eslint-disable is a small
+correctness smell — it implies a suppression that isn't
+happening, which misleads the next reader + leaves a CI
+warning. The extraction (M80) was still the right call;
+only the justification comment was wrong.
+
+**Key files:** `lib/now.ts`
+
 ## V2-M102 — On-page draft References section
 
 **Goal:** The draft rendered on the run-detail page
