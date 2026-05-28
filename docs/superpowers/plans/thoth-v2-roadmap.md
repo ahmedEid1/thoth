@@ -125,6 +125,39 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M42 — Live run-status polling on the project page
+
+**Goal:** The run-detail page polls every 2s via `RefreshTick`
+so the user sees plan-approval gates, paper-approval gates,
+status changes, and step events update in place. The project
+page (where the runs list lives) didn't poll, so a user who
+kicked off a run and stayed on the project page had to
+manually refresh to see status pills move PROCESSING →
+AWAITING_PLAN_APPROVAL → AWAITING_PAPER_APPROVAL → COMPLETED.
+
+**What shipped:**
+
+- Refactored `RefreshTick` to delegate to a new
+  `RefreshTickList` that polls if *any* of N runs is non-
+  terminal. Single-run wrapper preserves the existing API.
+- Added `<RefreshTickList runs={...}/>` to the project-page
+  runs list so it polls 2s while any visible run is active.
+- Visibility-pause + immediate-refresh-on-tab-return
+  semantics are inherited from the underlying effect.
+
+**Why not one tick per row:** they'd all share the same
+`router.refresh()` (it's the page-level cache, not per-row),
+and we'd pay N timers' worth of overhead. Computing
+"anyActive" once at the list level is cleaner.
+
+**Why no unit tests:** the polling effect needs jsdom +
+react-testing-library to exercise; existing component tests
+use server-side `renderToString` which doesn't run effects.
+The behavior is verified by the live e2e (which observes
+status transitions on the project page).
+
+**Key files:** `components/runs/refresh-tick.tsx`, `app/projects/[id]/page.tsx`
+
 ## V2-M41 — Delete-project affordance in dashboard
 
 **Goal:** Symmetric with M40. `DELETE /api/projects/[id]`
