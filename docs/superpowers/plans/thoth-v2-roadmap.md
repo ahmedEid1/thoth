@@ -146,6 +146,55 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M111 — SSRF-via-redirect + unbounded-download fixes
+
+**Goal:** Continuing the M110 depth-review of the
+fetcher's download path surfaced two more real gaps in
+`downloadPdf`:
+
+1. **SSRF via redirect (security).** Both the HEAD + GET
+   used `redirect: "follow"`. `isSafeExternalUrl` only
+   gated the INITIAL url — so a *safe* publisher URL that
+   returned `302 Location: http://169.254.169.254/...`
+   was followed straight to the metadata service,
+   silently bypassing M110's hardening. The up-front
+   check is worthless without re-validating each hop.
+2. **Unbounded body read (DoS).** `await res.arrayBuffer()`
+   buffered the entire response, size-checked only
+   afterwards. A server omitting `Content-Length` could
+   stream unbounded data (bounded only by the 30s fetch
+   timeout) → worker memory exhaustion.
+
+**What shipped:**
+
+- New `safeFetch(url, method)` — manual redirect
+  following (`redirect: "manual"`) that re-runs
+  `isSafeExternalUrl` on EACH hop (resolving relative
+  Locations against the current url), capped at
+  `MAX_REDIRECTS = 5`. The SSRF defense now covers the
+  whole redirect chain.
+- `downloadPdf` streams the GET body via
+  `res.body.getReader()` and aborts (`reader.cancel()`)
+  the instant the accumulated size exceeds
+  `MAX_PDF_BYTES` (25 MB) — no full-buffer-then-check.
+- `safeFetch` + `downloadPdf` exported (like
+  `isSafeExternalUrl`) for direct unit testing.
+- 10 new tests: redirect to internal → null (+ first
+  hop only fetched), public redirect chain followed,
+  relative-redirect resolution, max-redirect bail,
+  missing-Location → null; streamed over-cap (26×1MB,
+  no Content-Length) → null, small streamed body
+  accepted, HEAD-content-length over cap → null,
+  internal URL rejected before any fetch.
+
+**Severity:** the redirect bypass is the same
+metadata-credential-theft class as M110 — and was the
+*remaining* hole after M110 (which only fixed the
+first-URL check). Now closed end-to-end. DNS rebinding
+still out of scope (documented).
+
+**Key files:** `lib/agent/nodes/fetcher.ts`, `tests/lib/agent/nodes/fetcher-download.test.ts`
+
 ## V2-M110 — SSRF defense hardening (real security gaps closed)
 
 **Goal:** Investigating the V2 fetcher's SSRF defense

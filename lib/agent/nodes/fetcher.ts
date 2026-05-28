@@ -291,33 +291,89 @@ export function isSafeExternalUrl(url: string): boolean {
   return true;
 }
 
+/** Max redirect hops to follow before giving up. */
+const MAX_REDIRECTS = 5;
+
+/**
+ * fetch() that follows redirects MANUALLY, re-validating each hop against
+ * `isSafeExternalUrl`. The native `redirect: "follow"` would let a SAFE
+ * initial URL 30x-redirect to an internal address (e.g. a publisher CDN
+ * returning `302 Location: http://169.254.169.254/...`) — silently
+ * bypassing the up-front SSRF check (the M110 hardening only validated the
+ * first URL). Here we resolve each `Location` ourselves and re-gate it, so
+ * the SSRF defense covers the WHOLE redirect chain. Returns the final
+ * non-redirect Response, or null if any hop is unsafe / the chain is too
+ * long / a network error occurs.
+ */
+export async function safeFetch(url: string, method: "HEAD" | "GET"): Promise<Response | null> {
+  let current = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (!isSafeExternalUrl(current)) return null;
+    const res = await fetch(current, {
+      method,
+      redirect: "manual",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) return null;
+      try {
+        current = new URL(loc, current).toString(); // resolve relative redirects
+      } catch {
+        return null;
+      }
+      continue;
+    }
+    return res;
+  }
+  return null; // too many redirects
+}
+
 /** Return the PDF bytes on success; null on any expected fetch failure. */
-async function downloadPdf(url: string): Promise<Uint8Array | null> {
+export async function downloadPdf(url: string): Promise<Uint8Array | null> {
   // SSRF defense — reject internal-targeting URLs before the HEAD call.
   if (!isSafeExternalUrl(url)) return null;
   try {
     // HEAD first to bail out on non-PDF or oversized payloads before
     // streaming. Some servers don't expose Content-Length on HEAD; in that
-    // case we accept and check the body length after the GET.
-    const head = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (!head.ok) return null;
+    // case we accept and enforce the cap while streaming the GET body.
+    const head = await safeFetch(url, "HEAD");
+    if (!head || !head.ok) return null;
     const headType = head.headers.get("content-type")?.toLowerCase() ?? "";
     if (headType && !headType.includes("pdf")) return null;
     const headLen = head.headers.get("content-length");
     if (headLen && Number(headLen) > MAX_PDF_BYTES) return null;
 
-    const res = await fetch(url, {
-      method: "GET",
-      redirect: "follow",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (!res.ok) return null;
-    const buf = new Uint8Array(await res.arrayBuffer());
-    if (buf.length === 0 || buf.length > MAX_PDF_BYTES) return null;
+    const res = await safeFetch(url, "GET");
+    if (!res || !res.ok) return null;
+    // Stream the body with a HARD cap rather than `res.arrayBuffer()` (which
+    // buffers the whole response before any size check). A malicious server
+    // can omit Content-Length and stream unbounded data; without a streaming
+    // cap that's a memory-exhaustion DoS bounded only by FETCH_TIMEOUT_MS.
+    // Abort the moment the accumulated size exceeds MAX_PDF_BYTES.
+    const body = res.body;
+    if (!body) return null;
+    const reader = body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.length;
+      if (total > MAX_PDF_BYTES) {
+        await reader.cancel().catch(() => {});
+        return null;
+      }
+      chunks.push(value);
+    }
+    if (total === 0) return null;
+    const buf = new Uint8Array(total);
+    let offset = 0;
+    for (const c of chunks) {
+      buf.set(c, offset);
+      offset += c.length;
+    }
     return buf;
   } catch {
     return null;
