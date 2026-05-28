@@ -24,6 +24,37 @@ type ProviderError = {
   failureReason: string;
 };
 
+/**
+ * Provider-name → user-facing label, mirroring PROVIDER_BADGE further
+ * down the file. Lifted out so `perProviderCounts` can produce
+ * presentation-ready labels too.
+ */
+const PROVIDER_LABEL: Record<string, string> = {
+  openalex: "OpenAlex",
+  arxiv: "arXiv",
+  exa: "Exa",
+  uploaded: "Uploaded",
+};
+
+/**
+ * Count discovered papers per provider, sorted by descending count, with
+ * presentation-ready labels (so unknown providers don't render as the
+ * raw enum-y string). Exported for unit testing.
+ */
+export function perProviderCounts(
+  papers: { provider: string }[],
+): { provider: string; label: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const p of papers) counts.set(p.provider, (counts.get(p.provider) ?? 0) + 1);
+  return Array.from(counts.entries())
+    .map(([provider, count]) => ({
+      provider,
+      label: PROVIDER_LABEL[provider] ?? provider,
+      count,
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
 type Props = {
   queries: string[];
   discoveredPapers: DiscoveredPaper[];
@@ -54,6 +85,12 @@ export function DiscoverySummary({ queries, discoveredPapers, providerErrors }: 
   const screenedOut = discoveredPapers.filter((p) => p.screening?.include === false).length;
   const stillToScreen = discoveredPapers.filter((p) => p.screening === null).length;
 
+  // Per-provider count so the user can see if one adapter dominated (and
+  // whether errored providers in the panel below correlate with a low or
+  // zero count here). Sorted by descending count so the dominant provider
+  // is read first.
+  const providerCounts = perProviderCounts(discoveredPapers);
+
   return (
     <Card className="p-5 space-y-4">
       <header>
@@ -75,6 +112,11 @@ export function DiscoverySummary({ queries, discoveredPapers, providerErrors }: 
             {stillToScreen > 0 && (
               <> · <span className="italic">{stillToScreen} not yet screened</span></>
             )}
+          </p>
+        )}
+        {providerCounts.length > 1 && (
+          <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+            By provider: {providerCounts.map((pc) => `${pc.label} ${pc.count}`).join(" · ")}
           </p>
         )}
       </header>
