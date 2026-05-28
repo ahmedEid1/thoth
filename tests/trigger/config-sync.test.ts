@@ -97,6 +97,18 @@ describe("trigger.config loadSyncEnv", () => {
     expect(dbEntry?.value).toBe("postgres://prod");
   });
 
+  // V2 outbound + cost-cap env vars MUST be in the allowlist so an armed
+  // deploy picks them up. Without these, the trigger.dev worker silently
+  // runs on the lib/env.ts defaults (400k tokens, 50 hits, no Exa, no
+  // search-kill-switch) regardless of what the operator set in .env.
+  it("allowlist includes the V2 + cost-cap env vars (M6 + M19 + M2)", async () => {
+    const { ALLOWED_PROD_KEYS } = await import("@/trigger.config");
+    expect(ALLOWED_PROD_KEYS).toContain("EXA_API_KEY");
+    expect(ALLOWED_PROD_KEYS).toContain("SEARCH_DISABLED");
+    expect(ALLOWED_PROD_KEYS).toContain("MAX_TOKENS_PER_RUN");
+    expect(ALLOWED_PROD_KEYS).toContain("MAX_DISCOVERED_PAPERS_PER_RUN");
+  });
+
   it("logs sync mode + key count on every invocation", async () => {
     const logSpy = vi.spyOn(console, "log");
 
