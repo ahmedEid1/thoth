@@ -82,7 +82,17 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       <header>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-semibold">{project.title}</h1>
+            <h1 className="text-2xl font-semibold">
+              {project.title}
+              {(scope === "outbound" || scope === "hybrid") && (
+                <span
+                  className="ml-2 align-middle text-[0.65rem] font-sans font-medium uppercase tracking-wider text-[var(--thoth-blue)] bg-[var(--thoth-blue-mist)]/50 px-1.5 py-0.5 rounded"
+                  title={SCOPE_LABEL[scope]}
+                >
+                  {scope === "hybrid" ? "hybrid" : "v2"}
+                </span>
+              )}
+            </h1>
             <p className="text-muted-foreground mt-1">{project.question}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">

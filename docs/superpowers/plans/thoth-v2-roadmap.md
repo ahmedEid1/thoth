@@ -146,6 +146,28 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M74 — Scope badge on project detail header
+
+**Goal:** The dashboard project list (M54-era) shows a
+small "v2"/"hybrid" badge next to the title for outbound/
+hybrid projects. The project detail page didn't — once
+the user was inside, the scope info was buried inside the
+discovery config panel further down. Bring the visual
+consistency to the detail page header.
+
+**What shipped:**
+
+- Project header h1 now renders the same "v2" / "hybrid"
+  badge next to the title for outbound/hybrid projects,
+  matching the dashboard list styling.
+- Tooltip uses the existing `SCOPE_LABEL` map so the
+  copy ("Outbound search" / "Hybrid (uploaded +
+  outbound)") matches the discovery config panel below.
+- Uploaded_only projects render the title bare — no
+  badge needed since uploaded_only is the V1 default.
+
+**Key files:** `app/projects/[id]/page.tsx`
+
 ## V2-M73 — README v2.0.0 entry reflects current shipping log
 
 **Goal:** The README v2.0.0 line claimed "the 10 audit
