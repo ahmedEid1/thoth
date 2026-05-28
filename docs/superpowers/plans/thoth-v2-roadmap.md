@@ -125,6 +125,36 @@ to surface. The framework is ready to consume them as soon as they land.
 
 **Key files:** `lib/eval/metrics.ts`, `lib/eval/golden-schema.ts`
 
+## V2-M48 — Status pill covers all V2 states + friendlier labels
+
+**Goal:** The `RunStatusPill` component's status union +
+variant map were V1-only — missing the four V2 states
+(DISCOVERING, AWAITING_DISCOVERY_APPROVAL, FETCHING,
+SCREENING). When a V2 run was in any of those states, the
+`VARIANT[status]` lookup returned undefined and the Badge
+silently fell back to no-variant rendering.
+
+**What shipped:**
+
+- Status union extended with the V2 states.
+- Variant map matches V1 visual semantics: processing
+  states are "secondary" (subtle), HITL gates "default"
+  (prominent).
+- New `statusLabel(status)` helper renders friendlier copy
+  for the awkward AWAITING_* statuses:
+    - `AWAITING_PLAN_APPROVAL` → "awaiting plan review"
+    - `AWAITING_PAPERS_APPROVAL` → "awaiting paper review"
+    - `AWAITING_DISCOVERY_APPROVAL` → "awaiting discovery
+      review"
+- Defensive `VARIANT[status] ?? "outline"` fallback at the
+  call site so a future-added enum value still renders
+  *something* until the map catches up.
+- 3 unit tests cover the simple cases, the AWAITING_*
+  friendlier mapping, and a compile-time + runtime check
+  that every union member produces a non-empty label.
+
+**Key files:** `components/runs/run-status-pill.tsx`, `tests/components/run-status-pill.test.ts`
+
 ## V2-M47 — Corpus list shows real paper titles
 
 **Goal:** The corpus list rows showed only `item.source`
