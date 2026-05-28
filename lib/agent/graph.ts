@@ -187,7 +187,7 @@ export async function buildGraph() {
       // M113: re-discovery cycle — user edited queries at the gate and
       // asked to re-run. The discoverer consumes editedQueries, replaces
       // the discovered set, clears the signal, then discovery_gate fires
-      // again. Bounded by the trigger task's 6-segment resume cap.
+      // again. Bounded by the trigger task's MAX_SEGMENTS resume cap.
       discoverer: "discoverer",
       [END]: END,
     })

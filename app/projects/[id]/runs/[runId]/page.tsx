@@ -286,6 +286,11 @@ export default async function RunPage({
 
       {pendingDiscovery && (
         <DiscoveryApprovalCard
+          // Key by checkpoint id so a re-run's NEW discovery checkpoint
+          // remounts the card with fresh state (editing/editQueries) rather
+          // than carrying over the prior checkpoint's edits — the card seeds
+          // editQueries from props only on mount.
+          key={pendingDiscovery.id}
           runId={runId}
           checkpointId={pendingDiscovery.id}
           queries={(pendingDiscovery.proposal as { queries: string[] }).queries ?? []}
