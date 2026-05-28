@@ -29,5 +29,10 @@ export function compactCount(n: number): string {
     if (abs >= 999_500) return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
     return `${sign}${(abs / 1000).toFixed(0)}k`;
   }
-  return n.toLocaleString();
+  // Hardcode `"en-US"` for the grouping so the output is locale-stable
+  // — important both for visual consistency across user locales AND so
+  // unit tests aren't sensitive to the CI machine's default locale
+  // (a C/POSIX runner would skip the grouping entirely, breaking the
+  // "1,234" assertion).
+  return n.toLocaleString("en-US");
 }

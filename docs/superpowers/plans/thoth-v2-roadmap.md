@@ -146,6 +146,34 @@ the cleanup/re-setup churn was unnecessary.
 
 **Key files:** `components/corpus/corpus-item-list.tsx`
 
+## V2-M91 — compactCount hardcodes "en-US" locale
+
+**Goal:** `compactCount(1_234)` was returning
+`n.toLocaleString()` — locale-dependent. On the CI
+runner's default `en_US.UTF-8` it rendered `"1,234"`
+(passing the tests); but on a C/POSIX locale runner
+or a server with `LC_ALL=de_DE` the same code would
+return `"1234"` or `"1.234"` and the tests would
+break.
+
+**What shipped:**
+
+- `compactCount` calls `.toLocaleString("en-US")`
+  with an explicit locale. Output is now stable
+  regardless of runner locale.
+- JSDoc explains the dual rationale (user-visible
+  consistency + test stability).
+
+**Why en-US and not the user's locale:** the token
+counts are an engineering surface, not a marketing
+one — uniform formatting is more valuable than
+matching the visitor's expected comma vs dot. A
+future i18n pass could thread `acceptLanguage` from
+headers, but the call sites today (token spend
+badges) don't have that context.
+
+**Key files:** `lib/format.ts`
+
 ## V2-M90 — Extract `useRefreshPolling` shared hook
 
 **Goal:** Three near-identical inline `useEffect`
