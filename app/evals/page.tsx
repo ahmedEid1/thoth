@@ -113,6 +113,24 @@ export default async function EvalsPage() {
 
   return (
     <main id="main" className="max-w-6xl mx-auto px-6 py-16">
+      {/* HONEST-NUMBERS FRAMING ──────────────────────────────────────── */}
+      <section className="mb-10 max-w-3xl bg-[oklch(1_0_0)] border border-[var(--thoth-rule)] rounded-lg p-6">
+        <p className="eyebrow mb-3">How to read these numbers</p>
+        <p className="text-sm text-[var(--thoth-ink)] leading-relaxed">
+          These are real, automated scores over a versioned 18-question golden
+          set — not a curated highlight reel. They are regenerated in CI and
+          published with the last-run date, so a regression here is a public,
+          falsifiable signal. Headline: citation precision 97% and recall 74%
+          on the goldens scored so far. Faithfulness (38%) comes from
+          cite_check, which scores each cited claim strictly against its source
+          paper and counts anything not clearly grounded as unsupported — a
+          deliberately conservative bar. Some axes are still maturing: discovery
+          and screening are v2 and being calibrated, and 7 of 18 goldens have
+          data at this commit. Current focus: lifting faithfulness and golden
+          coverage.
+        </p>
+      </section>
+
       {/* EDITORIAL HEADER ────────────────────────────────────────────── */}
       <header className="mb-14 max-w-3xl">
         <p className="eyebrow">Public Eval Dashboard</p>
