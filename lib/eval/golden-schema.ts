@@ -34,6 +34,26 @@ export const GoldenQuestionSchema = z
     // when undefined (every existing V1 golden), those metrics are
     // skipped so the dashboard doesn't fill with vacuous 1.00 rows.
     expectedDois: z.array(z.string().min(3)).optional(),
+    // V2 — richer per-paper discovery expectation. Each entry identifies ONE
+    // expected work by any of: DOI, arXiv id, or title. Matching against the
+    // discovered set is identity-agnostic (see lib/eval/metrics.ts): the same
+    // paper is indexed under its DOI by OpenAlex and its arXiv id by arXiv, so
+    // a paper that WAS discovered (just via a different provider/id) must not
+    // score as a miss. Preferred over `expectedDois` for outbound goldens;
+    // when both are set, `expectedDiscovery` wins.
+    expectedDiscovery: z
+      .array(
+        z
+          .object({
+            doi: z.string().min(3).optional(),
+            arxivId: z.string().min(3).optional(),
+            title: z.string().min(3).optional(),
+          })
+          .refine((e) => !!(e.doi || e.arxivId || e.title), {
+            message: "each expectedDiscovery entry needs at least one of doi / arxivId / title",
+          }),
+      )
+      .optional(),
     // V2 — opt the golden into the outbound search pipeline. When
     // `searchScope` is "outbound"/"hybrid", run-evals.ts passes it (and
     // `searchProviders`) to the headless runner so the discoverer actually

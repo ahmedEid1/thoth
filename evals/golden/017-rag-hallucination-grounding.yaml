@@ -16,37 +16,36 @@ picoc:
 # the seed-corpus-based v1 metrics (citation_recall/precision, coverage) for
 # searchScope: outbound.
 #
-# NOT in the weekly cron smoke set — run manually via `workflow_dispatch:
-# goldens=all`. `searchMaxHits` below caps discovery small so the FULL pipeline
-# (screener → assessor → drafter → critic → cite_check) completes inside
-# Mistral's free-tier budget — an uncapped ~50-paper run makes ~50+ sequential
-# smart-tier calls and rate-limits out mid-run (see M126). To exercise a larger
-# set on a paid / higher-RPS provider, set EVAL_SEARCH_MAX_HITS (e.g. 50).
-# discovery_recall stays informational either way.
+# Outbound discovery golden. Run in the full sweep (workflow_dispatch
+# goldens=all, or the dedicated outbound job) on a higher-RPS provider
+# (LLM_PROVIDER=groq) — the 50-paper screener fan-out rate-limits on the Mistral
+# free tier. discovery_recall is a REAL measured metric here (~0.6 with the fair
+# budget + identity-agnostic matching below), not informational.
 searchScope: outbound
 searchProviders:
   - openalex
   - arxiv
 
-# Free-tier-safe cap: few enough papers that the per-paper screener + assessor
-# fan-out finishes within the free budget. EVAL_SEARCH_MAX_HITS overrides this.
-searchMaxHits: 4
+# Discovery budget. 50 = the deploy ceiling (env.MAX_DISCOVERED_PAPERS_PER_RUN);
+# a FAIR budget so target papers aren't cut by an over-tight top-N. The earlier
+# cap of 4 forced discovery_recall≈0 regardless of the discoverer's real reach
+# (M127). EVAL_SEARCH_MAX_HITS can override (e.g. lower for a quick free-tier smoke).
+searchMaxHits: 50
 
-# INFORMATIONAL, not a calibrated gate. These five ids are on-topic reference
-# papers (RAG hallucination / factual grounding / RAG evaluation), but exact-DOI
-# discovery_recall against a live, LLM-driven discoverer is inherently NOISY: the
-# discoverer's queries are LLM-generated and vary per run, so even these specific
-# papers don't reliably surface (observed discovery_recall 0.2 then 0.0 across
-# two back-to-back runs — see M126). Treat the resulting discovery_recall as an
-# informational signal, NOT a regression baseline. They keep the metric wired so
-# a manual run still reports it; the golden's real assertion is that the outbound
-# pipeline runs and persists its audit rows.
-expectedDois:
-  - "10.18653/v1/2024.acl-long.585"     # RAGTruth: a hallucination corpus for RAG
-  - "10.18653/v1/2023.emnlp-main.495"   # Active Retrieval Augmented Generation (FLARE)
-  - "10.1609/aaai.v38i16.29728"         # Benchmarking LLMs in Retrieval-Augmented Generation
-  - "10.18653/v1/2024.naacl-long.389"   # Adaptive-RAG
-  - "10.18653/v1/2024.eacl-demo.16"     # RAGAs: automated evaluation of RAG
+# Five canonical RAG-hallucination / factual-grounding / RAG-evaluation papers a
+# competent reviewer expects. Matching is identity-agnostic — DOI OR arXiv id OR
+# exact title (see lib/eval/metrics.ts) — because the same paper is indexed under
+# its DOI by OpenAlex and its arXiv id by arXiv; listing both makes
+# discovery_recall robust to which provider surfaced it. With the fair budget the
+# discoverer reliably surfaces ~3/5 (RAGTruth, RGB, RAGAs); FLARE and Adaptive-RAG
+# stay hard for the LLM-generated queries and are kept here honestly so recall
+# reflects the discoverer's real reach, not a curated-to-win subset.
+expectedDiscovery:
+  - { doi: "10.18653/v1/2024.acl-long.585",   arxivId: "2401.00396", title: "RAGTruth: A Hallucination Corpus for Developing Trustworthy Retrieval-Augmented Language Models" }
+  - { doi: "10.18653/v1/2023.emnlp-main.495", arxivId: "2305.06983", title: "Active Retrieval Augmented Generation" }
+  - { doi: "10.1609/aaai.v38i16.29728",       arxivId: "2309.01431", title: "Benchmarking Large Language Models in Retrieval-Augmented Generation" }
+  - { doi: "10.18653/v1/2024.naacl-long.389", arxivId: "2403.14403", title: "Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity" }
+  - { doi: "10.18653/v1/2024.eacl-demo.16",   arxivId: "2309.15217", title: "RAGAs: Automated Evaluation of Retrieval Augmented Generation" }
 
 papers:
   - id: paper_001
@@ -71,5 +70,5 @@ expectedClaims:
   - retrieval augmentation reduces hallucination versus parametric-only generation
 
 metadata:
-  source: "Synthetic v2-outbound pipeline-smoke golden — discovery_recall is informational/noisy, not calibrated (see M126). Manual workflow_dispatch only."
+  source: "v2-outbound discovery golden — discovery_recall measured with a fair searchMaxHits + identity-agnostic matching (DOI/arXiv/title, M127). Run in the full sweep on a higher-RPS provider."
   difficulty: medium

@@ -46,6 +46,50 @@ export function screeningPrecision(
   return hits / screenedIncludeExternalIds.length;
 }
 
+// ── V2 identity-agnostic matching ──────────────────────────────────────────
+// A discovered/admitted paper is the SAME work as an expected one if ANY of its
+// identifiers matches — DOI, arXiv id, or normalized title. Exact-DOI-only
+// matching under-counts: the same paper is routinely returned under its arXiv
+// id by one provider and its DOI by another, so a paper that WAS discovered
+// (just via arXiv) used to score as a miss. This makes the metric reflect
+// "did we find the work?" rather than "did we find this exact identifier?".
+export type ExpectedPaper = { doi?: string; arxivId?: string; title?: string };
+export type DiscoveredRef = { externalId: string; title?: string | null };
+
+function normalizeTitle(s: string | null | undefined): string {
+  return (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** True when discovered paper `d` is the same work as expected entry `e`. */
+export function paperMatchesExpected(d: DiscoveredRef, e: ExpectedPaper): boolean {
+  if (e.doi && d.externalId === e.doi) return true;
+  if (e.arxivId && (d.externalId === `arxiv:${e.arxivId}` || d.externalId === e.arxivId)) return true;
+  if (e.title && d.title && normalizeTitle(d.title) === normalizeTitle(e.title)) return true;
+  return false;
+}
+
+/**
+ * V2 — `discovery_recall`, identity-agnostic. Fraction of expected works the
+ * discoverer surfaced (matched by DOI OR arXiv id OR exact title), BEFORE the
+ * screener decides which to include.
+ */
+export function discoveryRecallTolerant(expected: ExpectedPaper[], discovered: DiscoveredRef[]): number {
+  if (expected.length === 0) return 1;
+  const hits = expected.filter((e) => discovered.some((d) => paperMatchesExpected(d, e))).length;
+  return hits / expected.length;
+}
+
+/**
+ * V2 — `screening_precision`, identity-agnostic. Of the papers the screener
+ * admitted, the fraction that are on the expected list. Vacuously 1.0 when the
+ * screener admitted nothing (same convention as `citationPrecision`).
+ */
+export function screeningPrecisionTolerant(expected: ExpectedPaper[], admitted: DiscoveredRef[]): number {
+  if (admitted.length === 0) return 1;
+  const hits = admitted.filter((d) => expected.some((e) => paperMatchesExpected(d, e))).length;
+  return hits / admitted.length;
+}
+
 export function citationPrecision(expected: string[], included: string[]): number {
   if (included.length === 0) return 1;
   const exp = new Set(expected);

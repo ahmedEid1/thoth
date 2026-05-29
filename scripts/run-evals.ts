@@ -10,8 +10,10 @@ import {
   citationPrecision,
   claimFaithfulness,
   expectedClaimCoverage,
-  discoveryRecall,
-  screeningPrecision,
+  discoveryRecallTolerant,
+  screeningPrecisionTolerant,
+  type ExpectedPaper,
+  type DiscoveredRef,
 } from "@/lib/eval/metrics";
 import { db } from "@/lib/db";
 import { createRun, persistIncludedPapers, persistClaims, finishRun } from "@/lib/agent/runs";
@@ -177,18 +179,26 @@ async function main(): Promise<void> {
     // / screener nodes. V1 goldens leave expectedDois undefined → these
     // metrics aren't emitted (vacuous-true would otherwise inflate the
     // dashboard with meaningless 1.00 rows).
-    if (g.expectedDois && g.expectedDois.length > 0) {
-      const discoveredExternalIds = result.discoveredPapers.map((p) => p.externalId);
-      const screenedIncludedExternalIds = result.screeningDecisions
+    // Prefer the richer expectedDiscovery ({doi,arxivId,title}); fall back to
+    // legacy expectedDois (DOI-only). Matching is identity-agnostic — a paper
+    // found via arXiv counts even when the golden lists its DOI (see metrics.ts).
+    const expectedDiscovery: ExpectedPaper[] =
+      g.expectedDiscovery && g.expectedDiscovery.length > 0
+        ? g.expectedDiscovery
+        : (g.expectedDois ?? []).map((doi) => ({ doi }));
+    if (expectedDiscovery.length > 0) {
+      const discoveredRefs: DiscoveredRef[] = result.discoveredPapers.map((p) => ({
+        externalId: p.externalId,
+        title: p.title,
+      }));
+      const admittedRefs: DiscoveredRef[] = result.screeningDecisions
         .filter((s) => s.include)
-        .map((s) => {
-          const paper = result.discoveredPapers.find((p) => p.id === s.discoveredPaperId);
-          return paper?.externalId;
-        })
-        .filter((id): id is string => id !== undefined);
+        .map((s) => result.discoveredPapers.find((p) => p.id === s.discoveredPaperId))
+        .filter((p): p is NonNullable<typeof p> => p !== undefined)
+        .map((p) => ({ externalId: p.externalId, title: p.title }));
       metrics.push(
-        { goldenId: g.id, metric: "discovery_recall",      score: discoveryRecall(g.expectedDois, discoveredExternalIds) },
-        { goldenId: g.id, metric: "screening_precision",   score: screeningPrecision(g.expectedDois, screenedIncludedExternalIds) },
+        { goldenId: g.id, metric: "discovery_recall",      score: discoveryRecallTolerant(expectedDiscovery, discoveredRefs) },
+        { goldenId: g.id, metric: "screening_precision",   score: screeningPrecisionTolerant(expectedDiscovery, admittedRefs) },
       );
     }
     allRows.push(...metrics);
