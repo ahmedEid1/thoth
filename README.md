@@ -10,9 +10,9 @@
 
 [![Live demo](https://img.shields.io/badge/▶_live_demo-thoth--slr.vercel.app-1E3A8A?style=flat-square)](https://thoth-slr.vercel.app)
 [![Public evals](https://img.shields.io/badge/evals-public-C9A961?style=flat-square)](https://thoth-slr.vercel.app/evals)
-[![MCP Registry](https://img.shields.io/badge/MCP-registered-orange?style=flat-square)](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth)
+[![MCP Registry](https://img.shields.io/badge/MCP-registered-orange?style=flat-square)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth)
 [![Tests](https://img.shields.io/badge/tests-676%20passing-success?style=flat-square)](docs/architecture.md#tests--verification)
-[![Version](https://img.shields.io/badge/version-2.0.0-informational?style=flat-square)](CHANGELOG.md)
+[![App release](https://img.shields.io/badge/app%20release-v2.0.0-informational?style=flat-square)](CHANGELOG.md)
 [![Deploy cost](https://img.shields.io/badge/deploy-%240%2Fmo-brightgreen?style=flat-square)](docs/self-host/oracle-cloud-quickstart.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-black?style=flat-square)](LICENSE)
 
@@ -47,15 +47,15 @@ server your AI assistant can call directly.
 <img src="docs/assets/m5-mcp-demo.gif" alt="Claude.ai connected to Thoth via MCP, using get_citation_audit to identify 6 unsupported claims" width="760" />
 </div>
 
-> Connected to Thoth via the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth), Claude calls `get_citation_audit`, finds a review with faithfulness 0.13, and identifies all 6 unsupported claims — every one citing the same paper, with invented percentages that aren't in the source.
+> Connected to Thoth via the [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth), Claude calls `get_citation_audit` on **one deliberately-weak review** (faithfulness 0.13 for that single review) and identifies all 6 unsupported claims — every one citing the same paper, with invented percentages that aren't in the source. This is `cite_check` doing its job: it's a single-review audit sample, not the golden-set aggregate (see [`/evals`](https://thoth-slr.vercel.app/evals)).
 
-**Every claim, scored against its source** — the `/showcase` review (no login needed):
+**Every claim, scored against its source** — the `/showcase` review (no login needed). The figures on this card (critic 4.2/5, faithfulness 75%, 8/8 citations checked, 2 unsupported) are **this one review's** scores — a worked example, not the aggregate:
 
 <div align="center">
-<img src="docs/assets/media/02-showcase.png" alt="A completed Thoth review: critic 4.2/5, citation faithfulness 75%, 8/8 citations checked with 2 unsupported" width="760" />
+<img src="docs/assets/media/02-showcase.png" alt="A completed Thoth review: critic 4.2/5, citation faithfulness 75%, 8/8 citations checked with 2 unsupported — scores for this single sample review" width="760" />
 </div>
 
-**Evaluated in public** — [`/evals`](https://thoth-slr.vercel.app/evals) tracks recall / precision / faithfulness / coverage over a versioned golden set, refreshed weekly by CI, so a regression is a public signal:
+**Evaluated in public** — [`/evals`](https://thoth-slr.vercel.app/evals) tracks citation recall / precision / faithfulness / coverage over an 18-question versioned golden set (7 of 18 populated at this commit), regenerated in CI and published with the last-run date, so a regression is a public, falsifiable signal:
 
 <div align="center">
 <img src="docs/assets/media/03-evals.png" alt="Thoth's public eval dashboard — citation recall, precision, faithfulness, and coverage per golden question" width="760" />
@@ -70,23 +70,29 @@ server your AI assistant can call directly.
 ## Key features
 
 - **🔎 `cite_check` — verifiable citations.** Every `[paper_id]` in the draft is
-  checked against the cited paper and labelled supported / unsupported / unclear.
-  This is the core differentiator: the LLM can't quietly hallucinate a citation.
-- **🌐 Outbound web search (v2).** Point Thoth at a question and its
-  `discoverer → fetcher → screener` agents find papers across **OpenAlex**, **arXiv**,
-  and **Exa**, fetch the open-access PDFs, OCR them, and screen each against your plan
-  — no manual uploads required. (Or stay in uploaded-only, or hybrid.)
+  scored against the cited paper and labelled supported / unsupported / unclear,
+  so the LLM can't quietly hallucinate a citation. On the public golden set, the
+  citations it *does* surface are accurate — **citation precision 97%, recall 74%**
+  — and the verdict report is published per claim, not summarised away. This is the
+  core differentiator: the citations are measured, not asserted.
+- **🌐 Outbound web search (v2 — under active evaluation).** An outbound
+  `discoverer → fetcher → screener` path is wired across **OpenAlex**, **arXiv**, and
+  **Exa**: it fetches open-access PDFs, OCRs them, and screens each against your plan,
+  so you can run uploaded-only, hybrid, or fully autonomous discovery. The discovery
+  and screening axes are **v2 and still being calibrated** — they're tracked openly on
+  [`/evals`](https://thoth-slr.vercel.app/evals) (both currently at 0%) rather than
+  shipped as a silent claim.
 - **🔌 Authenticated, registered MCP server.** OAuth 2.1 + PKCE + Dynamic Client
   Registration via Clerk, SHA-256 audit logging, rate limits — listed in the
-  [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth).
+  [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth).
   Most public MCP servers ship with no auth; this one doesn't.
 - **📊 Public eval dashboard.** Recall / precision / faithfulness / coverage over a
-  versioned golden set, refreshed weekly by CI and rendered at
+  versioned golden set, regenerated in CI and stamped with the last-run date, rendered at
   [`/evals`](https://thoth-slr.vercel.app/evals) — an eval regression is a *public*
   signal, not a hidden one.
-- **💸 6 LLM providers, $0 by default.** Swap providers with one env var; the Mistral
+- **💸 6 LLM providers, $0/mo by default.** Swap providers with one env var; the Mistral
   free tier runs the whole thing, and the entire stack deploys on free tiers for
-  **$0/month**.
+  **$0/mo**.
 
 ## 🚀 Quickstart
 
@@ -136,11 +142,11 @@ Full setup, the agent pipeline, and the v2 flow: **[docs/architecture.md](docs/a
 | | |
 |---|---|
 | **Live app** | [thoth-slr.vercel.app](https://thoth-slr.vercel.app) (Clerk sign-in) · sample review at [`/showcase`](https://thoth-slr.vercel.app/showcase) |
-| **Public evals** | [`/evals`](https://thoth-slr.vercel.app/evals) — recall/precision/faithfulness/coverage over an 18-question golden set, refreshed weekly by CI |
-| **MCP Registry** | [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0.1/servers?search=thoth) — `status: active` |
+| **Public evals** | [`/evals`](https://thoth-slr.vercel.app/evals) — **citation precision 97%, recall 74%** on a versioned 18-question golden set (7 of 18 populated at this commit; faithfulness 38% / coverage 32% tracked in the open as the set fills out; discovery/screening v2 under calibration). Regenerated in CI, published with the last-run date — a regression is a public signal. |
+| **MCP Registry** | [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth) — `status: active` |
 | **Tests** | 676 unit/integration + 22 live e2e against the deployed instance (MCP transport, real-browser, authenticated walkthroughs, full agent runs) — all green; tsc + lint clean |
 | **Audit log** | Every MCP call recorded with a SHA-256 input hash; no raw input stored |
-| **Deploy cost** | $0/month — Vercel + Neon + Cloudflare R2 + Langfuse + Trigger.dev, all free tiers ([self-host option](docs/self-host/oracle-cloud-quickstart.md)) |
+| **Deploy cost** | $0/mo — Vercel + Neon + Cloudflare R2 + Langfuse + Trigger.dev, all free tiers ([self-host option](docs/self-host/oracle-cloud-quickstart.md)) |
 
 ## For engineers
 
