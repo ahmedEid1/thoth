@@ -150,7 +150,7 @@ export default async function EvalsPage() {
           {/* Prefer totalYamls — the canonical golden set on disk in
               evals/golden/ — over goldenIds.length, which is the subset that
               has any EvalRun history yet. With the cron-default 6-golden
-              smoke set, goldenIds.length drifts under the canonical 17 until
+              smoke set, goldenIds.length drifts under the canonical 18 until
               a workflow_dispatch with goldens=all runs the rest. The "X of Y
               goldens have data at this commit" badge below clarifies that
               distinction. Falling back to goldenIds.length keeps the page

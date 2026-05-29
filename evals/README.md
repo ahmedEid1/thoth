@@ -1,7 +1,8 @@
 # Thoth eval harness
 
-17 golden SLR questions in YAML; a headless runner that drives the M3+M4a
-LangGraph per question; 4 metrics per run; an **advisory** regression
+18 golden SLR questions in YAML; a headless runner that drives the M3+M4a
+LangGraph per question; up to 6 metrics per run (v2 outbound goldens add
+discovery recall + screening precision); an **advisory** regression
 check; the public dashboard at <https://thoth-slr.vercel.app/evals>.
 
 The project default is `LLM_PROVIDER=mistral` (free Experiment tier).
