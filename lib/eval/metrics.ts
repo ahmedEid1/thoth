@@ -62,9 +62,25 @@ function normalizeTitle(s: string | null | undefined): string {
 
 /** True when discovered paper `d` is the same work as expected entry `e`. */
 export function paperMatchesExpected(d: DiscoveredRef, e: ExpectedPaper): boolean {
-  if (e.doi && d.externalId === e.doi) return true;
-  if (e.arxivId && (d.externalId === `arxiv:${e.arxivId}` || d.externalId === e.arxivId)) return true;
-  if (e.title && d.title && normalizeTitle(d.title) === normalizeTitle(e.title)) return true;
+  // DOI/arXiv ids are matched case-insensitively. DOIs are case-insensitive by
+  // spec; OpenAlex happens to lowercase them and arXiv can return a raw DOI of
+  // any case (arxiv.ts:136), so a mixed-case DOI/id must still match.
+  const ext = d.externalId.toLowerCase();
+  if (e.doi && ext === e.doi.toLowerCase()) return true;
+  if (e.arxivId) {
+    const id = e.arxivId.toLowerCase();
+    if (ext === `arxiv:${id}` || ext === id) return true;
+  }
+  // Title fallback is gated on a minimum specificity. normalizeTitle collapses
+  // to lowercase alnum+spaces, so a short generic title ("Active Retrieval")
+  // could collide with a different work (a survey, slides) and silently inflate
+  // discovery_recall. Requiring ≥20 normalized chars keeps all real golden
+  // titles matching while refusing ultra-short collisions. (Title is OR'd with
+  // the id checks, so a paper with a matching DOI/arXiv id still counts.)
+  if (e.title && d.title) {
+    const nt = normalizeTitle(e.title);
+    if (nt.length >= 20 && normalizeTitle(d.title) === nt) return true;
+  }
   return false;
 }
 

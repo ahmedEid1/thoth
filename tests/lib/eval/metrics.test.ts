@@ -6,6 +6,9 @@ import {
   expectedClaimCoverage,
   discoveryRecall,
   screeningPrecision,
+  paperMatchesExpected,
+  discoveryRecallTolerant,
+  screeningPrecisionTolerant,
 } from "@/lib/eval/metrics";
 
 describe("citationRecall", () => {
@@ -146,5 +149,86 @@ describe("screeningPrecision (V2)", () => {
   });
   it("returns 0 when none of the admitted papers were on the expected list", () => {
     expect(screeningPrecision(["10.1/a"], ["10.1/c", "10.1/d"])).toBe(0);
+  });
+});
+
+// V2 identity-agnostic matching: the same work is indexed under its DOI by
+// OpenAlex and its arXiv id by arXiv, so a paper found via either id (or an
+// exact title) must count as discovered. These functions back a public
+// dashboard metric, so their subtleties (arxiv: prefix, DOI case-insensitivity,
+// title specificity guard) are pinned here. All pure — no DB/network.
+describe("paperMatchesExpected", () => {
+  it("matches on exact DOI", () => {
+    expect(
+      paperMatchesExpected({ externalId: "10.18653/v1/2024.acl-long.585" }, { doi: "10.18653/v1/2024.acl-long.585" }),
+    ).toBe(true);
+  });
+  it("matches DOI case-insensitively", () => {
+    expect(
+      paperMatchesExpected({ externalId: "10.1109/ABC.2024" }, { doi: "10.1109/abc.2024" }),
+    ).toBe(true);
+  });
+  it("matches the arxiv:<id> form", () => {
+    expect(paperMatchesExpected({ externalId: "arxiv:2401.00396" }, { arxivId: "2401.00396" })).toBe(true);
+  });
+  it("matches a bare arxiv id", () => {
+    expect(paperMatchesExpected({ externalId: "2401.00396" }, { arxivId: "2401.00396" })).toBe(true);
+  });
+  it("matches a sufficiently specific normalized title", () => {
+    expect(
+      paperMatchesExpected(
+        { externalId: "openalex:W123", title: "RAGAs: Automated Evaluation of Retrieval Augmented Generation" },
+        { title: "ragas  automated   evaluation of retrieval augmented generation" },
+      ),
+    ).toBe(true);
+  });
+  it("does NOT match a different DOI", () => {
+    expect(paperMatchesExpected({ externalId: "10.1/a" }, { doi: "10.1/b" })).toBe(false);
+  });
+  it("does NOT match a short generic title even when normalized-equal", () => {
+    // Both normalize to "active retrieval" (16 chars < 20) — too generic to
+    // trust as same-work evidence, so the title path must refuse it.
+    expect(
+      paperMatchesExpected({ externalId: "openalex:W999", title: "Active Retrieval" }, { title: "active retrieval" }),
+    ).toBe(false);
+  });
+  it("still matches a short-title work when its DOI/arXiv id matches", () => {
+    // Title too short to match alone, but the id check carries it.
+    expect(
+      paperMatchesExpected({ externalId: "arxiv:2305.06983", title: "Active Retrieval" }, { arxivId: "2305.06983", title: "Active Retrieval" }),
+    ).toBe(true);
+  });
+});
+
+describe("discoveryRecallTolerant", () => {
+  it("returns 1 when expected is empty (vacuously true)", () => {
+    expect(discoveryRecallTolerant([], [{ externalId: "x" }])).toBe(1);
+  });
+  it("counts a paper found via arXiv even when the golden lists its DOI", () => {
+    expect(
+      discoveryRecallTolerant([{ doi: "10.1/a", arxivId: "2401.00396" }], [{ externalId: "arxiv:2401.00396" }]),
+    ).toBe(1);
+  });
+  it("returns the fraction of expected works surfaced", () => {
+    expect(
+      discoveryRecallTolerant(
+        [{ doi: "10.1/a" }, { doi: "10.1/b" }],
+        [{ externalId: "10.1/a" }, { externalId: "10.1/zzz" }],
+      ),
+    ).toBe(0.5);
+  });
+});
+
+describe("screeningPrecisionTolerant", () => {
+  it("returns 1 when nothing was admitted (vacuously true)", () => {
+    expect(screeningPrecisionTolerant([{ doi: "10.1/a" }], [])).toBe(1);
+  });
+  it("returns the fraction of admitted papers that were expected", () => {
+    expect(
+      screeningPrecisionTolerant(
+        [{ doi: "10.1/a" }],
+        [{ externalId: "10.1/a" }, { externalId: "10.1/unexpected" }],
+      ),
+    ).toBe(0.5);
   });
 });
