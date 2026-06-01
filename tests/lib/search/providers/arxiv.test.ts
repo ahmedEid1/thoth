@@ -4,6 +4,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -175,21 +176,34 @@ describe("arxivSearch (HTTP integration)", () => {
   });
 
   it("throws SearchProviderError on HTTP error", async () => {
+    // The provider retries 429/5xx three times with a 2s + 4s backoff (~6s of
+    // real time). Fake timers let the test exercise the real retry path and
+    // settle instantly instead of blowing the 5s default test timeout. We
+    // attach the rejection handler up front (.catch) so the rejection that
+    // fires mid-backoff never surfaces as an unhandled rejection.
+    vi.useFakeTimers();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("Internal Server Error", { status: 500 })),
     );
-    await expect(arxivSearch({ query: "x" })).rejects.toBeInstanceOf(SearchProviderError);
-    await expect(arxivSearch({ query: "x" })).rejects.toMatchObject({
+    const errPromise = arxivSearch({ query: "x" }).catch((e) => e);
+    await vi.runAllTimersAsync();
+    const err = await errPromise;
+    expect(err).toBeInstanceOf(SearchProviderError);
+    expect(err).toMatchObject({
       provider: "arxiv",
       message: expect.stringContaining("500"),
     });
   });
 
   it("throws SearchProviderError on network failure", async () => {
+    vi.useFakeTimers();
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("ECONNRESET"); }));
-    await expect(arxivSearch({ query: "x" })).rejects.toBeInstanceOf(SearchProviderError);
-    await expect(arxivSearch({ query: "x" })).rejects.toMatchObject({
+    const errPromise = arxivSearch({ query: "x" }).catch((e) => e);
+    await vi.runAllTimersAsync();
+    const err = await errPromise;
+    expect(err).toBeInstanceOf(SearchProviderError);
+    expect(err).toMatchObject({
       provider: "arxiv",
       message: expect.stringContaining("network error"),
     });
