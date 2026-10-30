@@ -141,6 +141,56 @@ describe("runLLM", () => {
     const callArgs = mocks.generateObject.mock.calls[0]?.[0];
     expect(callArgs?.maxOutputTokens).toBe(8192);
   });
+
+  it("reports the provider's cached input tokens from usage.inputTokenDetails.cacheReadTokens", async () => {
+    mocks.generateObject.mockResolvedValue({
+      object: { answer: "ok" },
+      usage: {
+        inputTokens: 2000,
+        outputTokens: 10,
+        totalTokens: 2010,
+        inputTokenDetails: { noCacheTokens: 800, cacheReadTokens: 1200, cacheWriteTokens: undefined },
+      },
+    });
+
+    const { runLLM } = await import("@/lib/llm");
+    const result = await runLLM({
+      name: "x",
+      tier: "fast",
+      maxTokens: 100,
+      system: "s",
+      messages: [{ role: "user", content: "u" }],
+      schema: z.object({ answer: z.string() }),
+    });
+
+    expect(result.usage.cacheReadInputTokens).toBe(1200);
+    // Cached tokens are part of inputTokens, not added to it.
+    expect(result.usage.inputTokens).toBe(2000);
+  });
+
+  it("reports 0 cached input tokens when the provider leaves cacheReadTokens unset", async () => {
+    mocks.generateObject.mockResolvedValue({
+      object: { answer: "ok" },
+      usage: {
+        inputTokens: 5,
+        outputTokens: 1,
+        totalTokens: 6,
+        inputTokenDetails: { noCacheTokens: 5, cacheReadTokens: undefined, cacheWriteTokens: undefined },
+      },
+    });
+
+    const { runLLM } = await import("@/lib/llm");
+    const result = await runLLM({
+      name: "x",
+      tier: "fast",
+      maxTokens: 100,
+      system: "s",
+      messages: [{ role: "user", content: "u" }],
+      schema: z.object({ answer: z.string() }),
+    });
+
+    expect(result.usage.cacheReadInputTokens).toBe(0);
+  });
 });
 
 // LLM_FALLBACK_PROVIDER: when set, runLLM retries ONCE on the fallback

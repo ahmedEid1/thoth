@@ -30,7 +30,13 @@ export type RunLLMResult<T> = {
     inputTokens: number;
     outputTokens: number;
     totalTokens: number;
-    /** Cache read tokens, when the provider reports them. 0 otherwise. */
+    /**
+     * Input tokens served from the provider's prompt cache, as reported by the
+     * AI SDK (`usage.inputTokenDetails.cacheReadTokens`). A subset of
+     * `inputTokens`, not an addition to it. 0 when the provider doesn't report
+     * it (Groq, claude-agent). Thoth sets no `cache_control`, so any non-zero
+     * value comes from caching the provider applies on its own.
+     */
     cacheReadInputTokens: number;
   };
 };
@@ -98,6 +104,7 @@ export async function runLLM<T>(args: RunLLMArgs<T>): Promise<RunLLMResult<T>> {
         inputTokens,
         outputTokens,
         totalTokens: inputTokens + outputTokens,
+        // Not reported on this path (see above); 0 rather than a guess.
         cacheReadInputTokens: 0,
       },
     };
@@ -203,7 +210,12 @@ export async function runLLM<T>(args: RunLLMArgs<T>): Promise<RunLLMResult<T>> {
       inputTokens: usage.inputTokens ?? 0,
       outputTokens: usage.outputTokens ?? 0,
       totalTokens: usage.totalTokens ?? 0,
-      cacheReadInputTokens: 0,
+      // The provider packages map their own cached-token field here:
+      // Anthropic usage.cache_read_input_tokens, OpenAI
+      // prompt_tokens_details / input_tokens_details.cached_tokens, Mistral
+      // num_cached_tokens (or prompt_tokens_details.cached_tokens), Gemini
+      // cachedContentTokenCount. Groq leaves it unset.
+      cacheReadInputTokens: usage.inputTokenDetails?.cacheReadTokens ?? 0,
     },
   };
 }

@@ -16,8 +16,9 @@ import { compactCount } from "@/lib/format";
  *   50–80% — papyrus + gold (heading toward the cap)
  *   >80% — brick warn (close to BudgetExceededError)
  *
- * Cache-read tokens are NOT counted toward the budget — `cost-cap.ts`
- * sums in + out only — so they're shown separately when present.
+ * Cache-read tokens are a subset of the input count (the AI SDK reports
+ * cached input inside `inputTokens`), so they are not added on top of the
+ * budget; the tooltip lists them separately when present.
  */
 type Step = {
   inputTokens: number;
