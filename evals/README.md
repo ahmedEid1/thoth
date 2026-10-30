@@ -80,6 +80,16 @@ The `/evals` dashboard is the authoritative public signal; the workflow
 status only reflects catastrophic failures (empty sweep, infrastructure
 outage), not LLM-judge variance.
 
+## Known limitations
+
+- Inclusion recall / precision (stored as `citation_recall` /
+  `citation_precision`) compare the papers a run includes with the golden's
+  `expectedPapers`; they do not look at the citations in the draft.
+- Inclusion precision is 1.0 by construction on 7 of the 17 V1 (seeded-corpus)
+  goldens: 000, 004, 007, 008, 014, 015 and 016 seed no distractor papers, so
+  every paper the run can include is on the expected list. Four of them (000,
+  004, 007, 008) are among the 9 goldens averaged into the README's 97% figure.
+
 ## Adding a golden question
 
 Drop a new file at `evals/golden/NNN-slug.yaml` matching `GoldenQuestionSchema`

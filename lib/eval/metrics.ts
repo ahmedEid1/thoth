@@ -4,6 +4,11 @@
  * eval question that doesn't assert on this metric doesn't drag the average down.
  */
 
+/**
+ * Shown as "Inclusion recall"; stored under the legacy key `citation_recall`.
+ * Fraction of the golden's expected papers that the run included. Compares
+ * paper ids only; it does not look at the citations in the draft.
+ */
 export function citationRecall(expected: string[], included: string[]): number {
   if (expected.length === 0) return 1;
   const inc = new Set(included);
@@ -106,6 +111,13 @@ export function screeningPrecisionTolerant(expected: ExpectedPaper[], admitted: 
   return hits / admitted.length;
 }
 
+/**
+ * Shown as "Inclusion precision"; stored under the legacy key
+ * `citation_precision`. Fraction of the papers the run included that are on
+ * the golden's expected list. Compares paper ids only; it does not look at the
+ * citations in the draft. When the seeded corpus has no distractor papers
+ * (every seeded paper is expected), this is 1.0 by construction.
+ */
 export function citationPrecision(expected: string[], included: string[]): number {
   if (included.length === 0) return 1;
   const exp = new Set(expected);
