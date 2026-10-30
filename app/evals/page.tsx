@@ -22,13 +22,13 @@ async function countGoldenYamls(): Promise<number> {
 const METRICS = [
   {
     key: "citation_recall",
-    label: "Citation recall",
-    short: "Did the agent find the papers it should have?",
+    label: "Inclusion recall",
+    short: "Did the agent include the papers it should have?",
   },
   {
     key: "citation_precision",
-    label: "Citation precision",
-    short: "Of the papers it cited, how many were the right ones?",
+    label: "Inclusion precision",
+    short: "Of the papers it included, how many were on the expected list?",
   },
   {
     key: "claim_faithfulness",
@@ -120,8 +120,10 @@ export default async function EvalsPage() {
           These are real, automated scores over a versioned 18-question golden
           set — not a curated highlight reel. They are regenerated in CI and
           published with the last-run date, so a regression here is a public,
-          falsifiable signal. Headline: citation precision 97% and recall 74%
-          on the goldens scored so far. Faithfulness (38%) comes from
+          falsifiable signal. Headline: inclusion precision 97% and recall 74%
+          on the goldens scored so far — which papers the agent includes,
+          checked against each golden&apos;s expected list (not a check of its
+          citations). Faithfulness (38%) comes from
           cite-check, which scores each cited claim strictly against its source
           paper and counts anything not clearly grounded as unsupported — a
           deliberately conservative bar. Some axes are still maturing: discovery
@@ -306,9 +308,10 @@ export default async function EvalsPage() {
             The agent is <strong>LLM-provider-agnostic</strong> — a run uses whichever model is
             configured. The free, public demo runs on a free-tier model (Mistral) for $0; some
             refreshes run on a frontier model (Claude) for higher fidelity. Either way the model
-            doesn&apos;t assign the scores by fiat: recall and precision are set-overlap against the
-            golden&apos;s expected papers, and faithfulness is the fraction of per-claim cite-check
-            verdicts that come back <em>supported</em> — so the numbers measure what the agent
+            doesn&apos;t assign the scores by fiat: inclusion recall and precision are set-overlap
+            between the papers the run included and the golden&apos;s expected papers, and
+            faithfulness is the fraction of per-claim cite-check verdicts that come back{" "}
+            <em>supported</em> — so the numbers measure what the agent
             actually produced on that run, not a model grading itself.
           </p>
         </article>
@@ -397,30 +400,32 @@ export default async function EvalsPage() {
           <dl className="space-y-5 text-sm text-[var(--thoth-ink)] leading-relaxed">
             <div>
               <dt className="font-display text-base font-medium text-[var(--thoth-blue-ink)]">
-                Citation recall ·{" "}
+                Inclusion recall ·{" "}
                 <span className="font-mono text-xs text-[var(--thoth-stone)]">
-                  expected ∩ cited / expected
+                  expected ∩ included / expected
                 </span>
               </dt>
               <dd className="mt-1">
-                Of the papers the golden says should be cited, how many did
-                the agent actually surface? Hardest metric to game — it
+                Of the papers the golden says should be included, how many did
+                the agent actually include? Hardest metric to game — it
                 requires retrieval and screening to land on the right
                 papers from the corpus, not just write plausible prose.
               </dd>
             </div>
             <div>
               <dt className="font-display text-base font-medium text-[var(--thoth-blue-ink)]">
-                Citation precision ·{" "}
+                Inclusion precision ·{" "}
                 <span className="font-mono text-xs text-[var(--thoth-stone)]">
-                  expected ∩ cited / cited
+                  expected ∩ included / included
                 </span>
               </dt>
               <dd className="mt-1">
-                Of the papers the agent did cite, how many were on the
-                expected list? Easy to score 100% by being maximally
+                Of the papers the agent included, how many were on the
+                expected list? It does not look at the draft&apos;s citations
+                (claim faithfulness does). Easy to score 100% by being maximally
                 conservative; the trick is doing it{" "}
-                <em>alongside</em> high recall.
+                <em>alongside</em> high recall. On goldens whose corpus has no
+                distractor papers it is 100% by construction.
               </dd>
             </div>
             <div>

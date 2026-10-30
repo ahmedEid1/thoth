@@ -61,7 +61,7 @@ test("public /evals dashboard loads + shows at least one metric tile", async ({ 
   // V1 metric labels must be visible; we don't assert v2 ones because
   // they're hidden until a v2 golden lands.
   await expect(
-    page.getByText(/citation recall|claim faithfulness/i).first(),
+    page.getByText(/inclusion recall|claim faithfulness/i).first(),
   ).toBeVisible({ timeout: 15_000 });
 });
 

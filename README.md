@@ -55,10 +55,10 @@ server your AI assistant can call directly.
 <img src="docs/assets/media/02-showcase.png" alt="A completed Thoth review: critic 4.2/5, citation faithfulness 75%, 8/8 citations checked with 2 unsupported — scores for this single sample review" width="760" />
 </div>
 
-**Evaluated in public** — [`/evals`](https://thoth-slr.vercel.app/evals) tracks citation recall / precision / faithfulness / coverage over an 18-question versioned golden set (7 of 18 populated at this commit), regenerated in CI and published with the last-run date, so a regression is a public, falsifiable signal:
+**Evaluated in public** — [`/evals`](https://thoth-slr.vercel.app/evals) tracks inclusion recall / precision, claim faithfulness and coverage over an 18-question versioned golden set (7 of 18 have data at the latest sweep's commit), regenerated in CI and published with the last-run date, so a regression is a public, falsifiable signal:
 
 <div align="center">
-<img src="docs/assets/media/03-evals.png" alt="Thoth's public eval dashboard — citation recall, precision, faithfulness, and coverage per golden question" width="760" />
+<img src="docs/assets/media/03-evals.png" alt="Thoth's public eval dashboard — inclusion recall and precision (labelled citation recall / precision in this screenshot, taken before the rename), claim faithfulness, and coverage per golden question" width="760" />
 </div>
 
 **You approve every step** — three human-in-the-loop gates (review plan → review discovered papers → approve included papers); nothing runs unattended:
@@ -71,10 +71,14 @@ server your AI assistant can call directly.
 
 - **🔎 `cite_check` — verifiable citations.** Every `[paper_id]` in the draft is
   scored against the cited paper and labelled supported / unsupported / unclear,
-  so the LLM can't quietly hallucinate a citation. On the public golden set, the
-  citations it *does* surface are accurate — **citation precision 97%, recall 74%**
-  — and the verdict report is published per claim, not summarised away. This is the
-  core differentiator: the citations are measured, not asserted.
+  so the LLM can't quietly hallucinate a citation. The verdict report is published
+  per claim, not summarised away (claim faithfulness on the golden set: 38%). This is
+  the core differentiator: the citations are measured, not asserted. Paper selection
+  is scored separately: the papers Thoth includes are compared with each golden
+  question's expected paper list — **inclusion precision 97%, recall 74%**, averaged
+  over the 9 golden questions that have an inclusion score. That measures which papers
+  it picks, not whether its citations are correct, and precision is 1.0 by construction
+  on goldens with no distractor papers (see [known limitations](evals/README.md#known-limitations)).
 - **🌐 Outbound web search (v2 — under active evaluation).** An outbound
   `discoverer → fetcher → screener` path is wired across **OpenAlex**, **arXiv**, and
   **Exa**: it fetches open-access PDFs, OCRs them, and screens each against your plan,
@@ -86,7 +90,7 @@ server your AI assistant can call directly.
   Registration via Clerk, SHA-256 audit logging, rate limits — listed in the
   [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth).
   Most public MCP servers ship with no auth; this one doesn't.
-- **📊 Public eval dashboard.** Recall / precision / faithfulness / coverage over a
+- **📊 Public eval dashboard.** Inclusion recall / precision, faithfulness and coverage over a
   versioned golden set, regenerated in CI and stamped with the last-run date, rendered at
   [`/evals`](https://thoth-slr.vercel.app/evals) — an eval regression is a *public*
   signal, not a hidden one.
@@ -142,7 +146,7 @@ Full setup, the agent pipeline, and the v2 flow: **[docs/architecture.md](docs/a
 | | |
 |---|---|
 | **Live app** | [thoth-slr.vercel.app](https://thoth-slr.vercel.app) (Clerk sign-in) · sample review at [`/showcase`](https://thoth-slr.vercel.app/showcase) |
-| **Public evals** | [`/evals`](https://thoth-slr.vercel.app/evals) — **citation precision 97%, recall 74%** on a versioned 18-question golden set (7 of 18 populated at this commit; faithfulness 38% / coverage 32% tracked in the open as the set fills out; discovery/screening v2 under calibration). Regenerated in CI, published with the last-run date — a regression is a public signal. |
+| **Public evals** | [`/evals`](https://thoth-slr.vercel.app/evals) — **inclusion precision 97%, recall 74%** (papers included vs. each question's expected list, averaged over the 9 golden questions with an inclusion score) on a versioned 18-question golden set (7 of 18 have data at the latest sweep's commit; faithfulness 38% / coverage 32% tracked in the open as the set fills out; discovery/screening v2 under calibration). Regenerated in CI, published with the last-run date — a regression is a public signal. |
 | **MCP Registry** | [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth) — `status: active` |
 | **Tests** | 676 unit/integration + 22 live e2e against the deployed instance (MCP transport, real-browser, authenticated walkthroughs, full agent runs) — all green; tsc + lint clean |
 | **Audit log** | Every MCP call recorded with a SHA-256 input hash; no raw input stored |
