@@ -14,7 +14,7 @@ import { deliverCheckpoint } from "@/lib/agent/checkpoint-delivery";
  * user has no surface to retry; the agent would otherwise wait until
  * the wait-token's natural timeout.
  *
- * This cron polls every minute for stranded rows and re-runs the shared
+ * This cron polls every 30 minutes for stranded rows and re-runs the shared
  * deliverCheckpoint helper (the same one the routes call for Phase 2).
  * The helper acquires a per-checkpoint advisory lock and replays the
  * PERSISTED decisionPayload, so:
@@ -47,8 +47,12 @@ const MAX_ATTEMPTS = 10;
 
 export const checkpointDeliveryOutboxTask = schedules.task({
   id: "checkpoint-delivery-outbox",
-  // Every minute, UTC. Cron format: min hour dom month dow.
-  cron: "* * * * *",
+  // Every 30 minutes, UTC. Cron format: min hour dom month dow.
+  // It used to run every minute, which kept the Neon free-plan compute from ever scaling to zero (it suspends after
+  // 5 idle minutes) and used up both the monthly compute allowance and Trigger.dev's free credit by mid-month,
+  // taking the database down until the next reset. A stranded checkpoint is rare and its wait-token stays valid for
+  // 24 hours (run-review.ts), so the slower poll only delays recovery.
+  cron: "*/30 * * * *",
   maxDuration: 300,
   run: async () => {
     const stranded = await db.humanCheckpoint.findMany({

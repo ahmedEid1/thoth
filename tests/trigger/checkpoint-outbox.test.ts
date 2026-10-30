@@ -67,10 +67,10 @@ function row(
 }
 
 describe("checkpoint-delivery-outbox task", () => {
-  it("is scheduled every minute and has the expected id", async () => {
+  it("is scheduled every 30 minutes and has the expected id", async () => {
     const task = await loadTask();
     expect(task.id).toBe("checkpoint-delivery-outbox");
-    expect(task.cron).toBe("* * * * *");
+    expect(task.cron).toBe("*/30 * * * *");
   });
 
   it("logs and returns zeros when no stranded checkpoints exist", async () => {

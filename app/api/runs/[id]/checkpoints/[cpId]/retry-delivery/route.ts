@@ -14,7 +14,7 @@ import { deliverCheckpoint } from "@/lib/agent/checkpoint-delivery";
  * flow should be used for that.
  *
  * The cron outbox at trigger/checkpoint-delivery-outbox.ts handles
- * automatic recovery every minute; this endpoint exists so the user
+ * automatic recovery every 30 minutes; this endpoint exists so the user
  * can trigger immediate retry from the run page without waiting.
  */
 export async function POST(
