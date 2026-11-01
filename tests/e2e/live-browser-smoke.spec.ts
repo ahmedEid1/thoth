@@ -7,7 +7,7 @@ import { test, expect } from "@playwright/test";
  * (which exercises the MCP transport) with actual DOM + asset checks.
  *
  * Run against the live deploy:
- *   PLAYWRIGHT_BASE_URL=https://thoth-slr.vercel.app pnpm playwright test \
+ *   PLAYWRIGHT_BASE_URL=https://<your-host> pnpm playwright test \
  *     tests/e2e/live-browser-smoke.spec.ts --project=chromium
  *
  * Or via the alias: `pnpm test:e2e:live` (now runs both this + mcp-smoke).
@@ -20,7 +20,7 @@ import { test, expect } from "@playwright/test";
  *    + Mistral OCR + create DB rows. RELEASING.md covers them manually.
  */
 
-const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "https://thoth-slr.vercel.app";
+const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
 test("home page renders the headline + key CTAs", async ({ page }) => {
   const response = await page.goto(BASE);

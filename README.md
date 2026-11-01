@@ -45,7 +45,7 @@ server your AI assistant could call directly; it still runs on your own machine 
 <img src="docs/assets/m5-mcp-demo.gif" alt="Claude.ai connected to Thoth via MCP, using get_citation_audit to identify 6 unsupported claims" width="760" />
 </div>
 
-> Connected to Thoth via the [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth), Claude calls `get_citation_audit` on **one deliberately-weak review** (faithfulness 0.13 for that single review) and identifies all 6 unsupported claims — every one citing the same paper, with invented percentages that aren't in the source. This is `cite_check` doing its job: it's a single-review audit sample, not the golden-set aggregate (see [`/evals`](https://thoth-slr.vercel.app/evals)).
+> Connected to Thoth via the [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth), Claude calls `get_citation_audit` on **one deliberately-weak review** (faithfulness 0.13 for that single review) and identifies all 6 unsupported claims — every one citing the same paper, with invented percentages that aren't in the source. This is `cite_check` doing its job: it's a single-review audit sample, not the golden-set aggregate (the `/evals` dashboard had that).
 
 **Every claim, scored against its source** — the `/showcase` review (no login needed). The figures on this card (critic 4.2/5, faithfulness 75%, 8/8 citations checked, 2 unsupported) are **this one review's** scores — a worked example, not the aggregate:
 
@@ -98,7 +98,7 @@ server your AI assistant could call directly; it still runs on your own machine 
 
 ## 🚀 Quickstart
 
-The hosted app (thoth-slr.vercel.app) ran live in 2026 and is retired, so run your own instance (below).
+The hosted app ran live in 2026 and is retired, so run your own instance (below).
 
 **Connect it to your AI assistant** — paste your deployment's MCP URL into claude.ai (Pro/Max), Claude
 Desktop, Cursor, or any MCP client (OAuth runs in your browser; no token to copy):
@@ -141,7 +141,7 @@ Full setup, the agent pipeline, and the v2 flow: **[docs/architecture.md](docs/a
 
 | | |
 |---|---|
-| **Hosted app** | Ran live in 2026 at thoth-slr.vercel.app (Clerk sign-in, sample review at `/showcase`); retired on 1 Nov 2026 |
+| **Hosted app** | Ran live in 2026 (Clerk sign-in, sample review at `/showcase`); retired on 1 Nov 2026 |
 | **Public evals** | `/evals` (last run 6 July 2026) — **inclusion precision 97%, recall 74%** (papers included vs. each question's expected list, averaged over the 9 golden questions with an inclusion score) on a versioned 18-question golden set (7 of 18 have data at the latest sweep's commit; faithfulness 38% / coverage 32% tracked in the open as the set fills out; discovery/screening v2 under calibration). Regenerated in CI, published with the last-run date — a regression is a public signal. |
 | **MCP Registry** | [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth) — listed; its remote endpoint was retired with the hosted app |
 | **Tests** | 676 unit/integration + 22 live e2e against the deployed instance (MCP transport, real-browser, authenticated walkthroughs, full agent runs) — all green; tsc + lint clean |

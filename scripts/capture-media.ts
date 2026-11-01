@@ -4,7 +4,7 @@
  * audit), and the evals dashboard, plus a scroll-through video of the showcase
  * for a walkthrough GIF. Run:
  *
- *   PLAYWRIGHT_BASE_URL=https://thoth-slr.vercel.app pnpm tsx scripts/capture-media.ts
+ *   PLAYWRIGHT_BASE_URL=https://<your-host> pnpm tsx scripts/capture-media.ts
  *
  * Then convert the video to a GIF with ffmpeg (see scripts/make-gifs.sh).
  */
@@ -12,7 +12,7 @@ import { chromium } from "@playwright/test";
 import path from "node:path";
 import fs from "node:fs/promises";
 
-const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "https://thoth-slr.vercel.app";
+const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const OUT = path.resolve("docs/assets/media");
 const VIDEO_DIR = path.resolve("docs/assets/media/_video");
 

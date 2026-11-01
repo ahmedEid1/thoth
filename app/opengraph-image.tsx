@@ -88,7 +88,7 @@ export default function Image() {
             cite_check post-pass · MCP-registered · $0/mo deploy
           </div>
           <div style={{ display: "flex", color: BLUE, fontWeight: 700 }}>
-            thoth-slr.vercel.app
+            github.com/ahmedEid1/thoth
           </div>
         </div>
       </div>

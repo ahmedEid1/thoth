@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-url";
 
 /**
  * Robots policy for crawlers. Next.js Metadata Files: this file becomes
@@ -11,7 +12,7 @@ import type { MetadataRoute } from "next";
  * theoretical accidental exposure.
  */
 export default function robots(): MetadataRoute.Robots {
-  const base = "https://thoth-slr.vercel.app";
+  const base = SITE_URL;
   return {
     rules: [
       {
