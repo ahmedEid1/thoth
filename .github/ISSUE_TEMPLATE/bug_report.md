@@ -16,7 +16,7 @@ labels: bug
 2.
 
 **Context**
-- Where: [ ] live app (thoth-slr.vercel.app) · [ ] self-host · [ ] local dev
+- Where: [ ] self-host · [ ] local dev
 - Search mode (if relevant): uploaded_only / outbound / hybrid
 - LLM provider (if relevant):
 - Run / project id, or MCP tool name (if relevant):

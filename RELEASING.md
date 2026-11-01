@@ -31,14 +31,13 @@ touches `app/api/mcp/`, `lib/mcp/`, or `app/.well-known/`. ~5 minutes.
   (`live-browser-smoke.spec.ts`: home page renders, `/api/health` reports
   ok + dbReachable, `/evals` dashboard renders with metric tiles,
   `/showcase` renders the seeded exemplar, `/.well-known/security.txt`
-  served per RFC 9116). Aliased in `package.json` — bakes in
-  `PLAYWRIGHT_BASE_URL=https://thoth-slr.vercel.app` + the spec list +
-  `--project=chromium`.
+  served per RFC 9116). Aliased in `package.json` — bakes in the spec list +
+  `--project=chromium`; set `PLAYWRIGHT_BASE_URL` to your deployment.
 
 - [ ] **MCP Inspector full OAuth flow**:
   1. `npx @modelcontextprotocol/inspector`
   2. Set transport to "Streamable HTTP"
-  3. URL: `https://thoth-slr.vercel.app/api/mcp/mcp`
+  3. URL: `https://<your-host>/api/mcp/mcp`
   4. Click "Connect" — browser pops Clerk sign-in
   5. Sign in / sign up
   6. Expect: 5 tools appear in the left pane (3 v1 + 2 v2)
@@ -56,7 +55,7 @@ touches `app/api/mcp/`, `lib/mcp/`, or `app/.well-known/`. ~5 minutes.
 
 - [ ] **Claude Desktop install** (proves the install-and-use path works end-to-end):
   1. Claude Desktop → Settings → Developer → Edit Config → add an MCP server
-     pointing at `https://thoth-slr.vercel.app/api/mcp/mcp`
+     pointing at `https://<your-host>/api/mcp/mcp`
   2. Restart Claude Desktop
   3. Sign in via the browser pop
   4. In a new conversation, ask: "List my Thoth reviews"
@@ -89,7 +88,7 @@ That repo is the registry's own source code; submitting servers happens via API.
 curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_windows_amd64.tar.gz" \
   | tar xz -C /tmp mcp-publisher.exe
 
-# 2. Bump `server.json`'s "version" to match `package.json`'s new version, then:
+# 2. (server.json was removed when the hosted instance was retired on 2026-11-01; restore it from git history with your own remote URL to list a new deployment.) Bump `server.json`'s "version" to match `package.json`'s new version, then:
 /tmp/mcp-publisher.exe validate                 # sanity check against the schema
 /tmp/mcp-publisher.exe login github             # device-code flow as ahmedEid1
 /tmp/mcp-publisher.exe publish                  # POSTs to registry.modelcontextprotocol.io
@@ -103,7 +102,7 @@ Namespace `io.github.ahmedEid1/thoth` requires logging in as **`ahmedEid1`** (ca
 
 ## Showcase review (`/showcase`)
 
-The pinned exemplar review at `https://thoth-slr.vercel.app/showcase`
+The pinned exemplar review at `https://<your-host>/showcase`
 is rendered from a fixed showcase user (`user_thoth_showcase`,
 `isGuest=false` so it's never swept by the guest-cleanup cron).
 Hand-curated, no LLM calls.

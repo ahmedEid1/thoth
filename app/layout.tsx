@@ -4,6 +4,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { SITE_URL } from "@/lib/site-url";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -24,24 +25,8 @@ const fraunces = Fraunces({
   axes: ["opsz", "SOFT"],
 });
 
-// Resolve relative URLs in the metadata. The order matters:
-//   1. NEXT_PUBLIC_SITE_URL — explicit override (preview branches, alt domain).
-//   2. The canonical production hostname for `VERCEL_ENV === 'production'`.
-//      VERCEL_URL is intentionally NOT used here even on prod, because it's
-//      the per-deploy immutable URL (changes every push) and social platforms
-//      cache OG images by URL — using the per-deploy URL would invalidate the
-//      cache on every release. The production alias `thoth-slr.vercel.app`
-//      stays stable.
-//   3. VERCEL_URL for preview deploys, so preview-environment OG previews
-//      still resolve against the right origin.
-//   4. The canonical prod hostname as the local-dev default.
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
-  ? process.env.NEXT_PUBLIC_SITE_URL
-  : process.env.VERCEL_ENV === "production"
-    ? "https://thoth-slr.vercel.app"
-    : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "https://thoth-slr.vercel.app";
+// Origin for metadataBase (OG images, canonical URLs): see lib/site-url.ts.
+const siteUrl = SITE_URL;
 
 const TITLE = "Thoth — Agentic systematic literature reviews";
 const DESCRIPTION =

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-url";
 
 /**
  * Sitemap for the public surface. Next.js Metadata Files: this file becomes
@@ -14,7 +15,7 @@ import type { MetadataRoute } from "next";
  * doesn't drift release-to-release).
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = "https://thoth-slr.vercel.app";
+  const base = SITE_URL;
   const lastModified = new Date();
   return [
     { url: `${base}/`, lastModified, changeFrequency: "monthly", priority: 1.0 },

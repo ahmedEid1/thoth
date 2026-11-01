@@ -26,7 +26,7 @@ import dotenv from "dotenv";
  * still run the rest of the live smoke).
  *
  * Run with:
- *   PLAYWRIGHT_BASE_URL=https://thoth-slr.vercel.app \
+ *   PLAYWRIGHT_BASE_URL=https://<your-host> \
  *     pnpm playwright test tests/e2e/live-auth-walkthrough.spec.ts \
  *     --project=chromium
  */

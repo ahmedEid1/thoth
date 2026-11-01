@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { verifyClerkToken } from "@clerk/mcp-tools/next";
 import { db } from "@/lib/db";
 import { MCP_TOOLS } from "@/lib/mcp/tools";
+import { SITE_URL } from "@/lib/site-url";
 
 const baseHandler = createMcpHandler(
   (server) => {
@@ -47,10 +48,10 @@ const baseHandler = createMcpHandler(
       title: "Thoth — Agentic SLR",
       description:
         "Authenticated MCP server for systematic literature reviews with verified citations. Surfaces your Thoth reviews + per-claim cite_check audits.",
-      websiteUrl: "https://thoth-slr.vercel.app",
+      websiteUrl: "https://github.com/ahmedEid1/thoth",
       icons: [
         {
-          src: "https://thoth-slr.vercel.app/icon.svg",
+          src: `${SITE_URL}/icon.svg`,
           mimeType: "image/svg+xml",
         },
       ],
