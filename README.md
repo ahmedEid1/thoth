@@ -94,6 +94,7 @@ server your AI assistant can call directly.
   versioned golden set, regenerated in CI and stamped with the last-run date, rendered at
   [`/evals`](https://thoth-slr.vercel.app/evals) — an eval regression is a *public*
   signal, not a hidden one.
+  The weekly eval run is retired; the dashboard shows the last run (6 July 2026).
 - **💸 6 LLM providers, $0/mo by default.** Swap providers with one env var; the Mistral
   free tier runs the whole thing, and the entire stack deploys on free tiers for
   **$0/mo**.
