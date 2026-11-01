@@ -8,15 +8,13 @@
 
 *Named for Thoth, ancient Egypt's ibis-headed god of writing and scribes.*
 
-[![Live demo](https://img.shields.io/badge/▶_live_demo-thoth--slr.vercel.app-1E3A8A?style=flat-square)](https://thoth-slr.vercel.app)
-[![Public evals](https://img.shields.io/badge/evals-public-C9A961?style=flat-square)](https://thoth-slr.vercel.app/evals)
-[![MCP Registry](https://img.shields.io/badge/MCP-registered-orange?style=flat-square)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth)
+![Hosted app](https://img.shields.io/badge/hosted_app-ran_live_in_2026,_retired-6B7280?style=flat-square)
 [![Tests](https://img.shields.io/badge/tests-676%20passing-success?style=flat-square)](docs/architecture.md#tests--verification)
 [![App release](https://img.shields.io/badge/app%20release-v2.0.0-informational?style=flat-square)](CHANGELOG.md)
 [![Deploy cost](https://img.shields.io/badge/deploy-%240%2Fmo-brightgreen?style=flat-square)](docs/self-host/oracle-cloud-quickstart.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-black?style=flat-square)](LICENSE)
 
-**[Try the live demo](https://thoth-slr.vercel.app)** · **[See a sample review](https://thoth-slr.vercel.app/showcase)** · **[Public eval dashboard](https://thoth-slr.vercel.app/evals)** · **[Connect via MCP](#-connect-it-to-your-ai-assistant)**
+**The hosted app ran live in 2026 and is now retired.** The screenshots and walkthroughs below are from it; you can still [run it yourself](#-quickstart).
 
 <img src="docs/assets/media/showcase-walkthrough.gif" alt="Browsing a completed Thoth review — draft, critic score, and per-claim citation audit" width="760" />
 
@@ -36,8 +34,8 @@ source paper** and flags anything unsupported *before you read the draft*. The r
 is a review with a critic score, a citation-faithfulness percentage, and a per-claim
 audit you can trust.
 
-It runs as a polished web app, a public eval dashboard, and an authenticated MCP
-server your AI assistant can call directly.
+It ran (hosted, in 2026) as a polished web app, a public eval dashboard, and an authenticated MCP
+server your AI assistant could call directly; it still runs on your own machine or host.
 
 ## See it work
 
@@ -55,7 +53,7 @@ server your AI assistant can call directly.
 <img src="docs/assets/media/02-showcase.png" alt="A completed Thoth review: critic 4.2/5, citation faithfulness 75%, 8/8 citations checked with 2 unsupported — scores for this single sample review" width="760" />
 </div>
 
-**Evaluated in public** — [`/evals`](https://thoth-slr.vercel.app/evals) tracks inclusion recall / precision, claim faithfulness and coverage over an 18-question versioned golden set (7 of 18 have data at the latest sweep's commit), regenerated in CI and published with the last-run date, so a regression is a public, falsifiable signal:
+**Evaluated in public** — the `/evals` dashboard tracked inclusion recall / precision, claim faithfulness and coverage over an 18-question versioned golden set (7 of 18 have data at the latest sweep's commit), regenerated in CI and published with the last-run date (last run 6 July 2026, before the hosted app was retired), so a regression was a public, falsifiable signal:
 
 <div align="center">
 <img src="docs/assets/media/03-evals.png" alt="Thoth's public eval dashboard — inclusion recall and precision (labelled citation recall / precision in this screenshot, taken before the rename), claim faithfulness, and coverage per golden question" width="760" />
@@ -84,7 +82,7 @@ server your AI assistant can call directly.
   **Exa**: it fetches open-access PDFs, OCRs them, and screens each against your plan,
   so you can run uploaded-only, hybrid, or fully autonomous discovery. The discovery
   and screening axes are **v2 and still being calibrated** — they're tracked openly on
-  [`/evals`](https://thoth-slr.vercel.app/evals) (both currently at 0%) rather than
+  `/evals` (both at 0% at the last run) rather than
   shipped as a silent claim.
 - **🔌 Authenticated, registered MCP server.** OAuth 2.1 + PKCE + Dynamic Client
   Registration via Clerk, SHA-256 audit logging, rate limits — listed in the
@@ -92,24 +90,21 @@ server your AI assistant can call directly.
   Most public MCP servers ship with no auth; this one doesn't.
 - **📊 Public eval dashboard.** Inclusion recall / precision, faithfulness and coverage over a
   versioned golden set, regenerated in CI and stamped with the last-run date, rendered at
-  [`/evals`](https://thoth-slr.vercel.app/evals) — an eval regression is a *public*
-  signal, not a hidden one.
-  The weekly eval run is retired; the dashboard shows the last run (6 July 2026).
-- **💸 6 LLM providers, $0/mo by default.** Swap providers with one env var; the Mistral
-  free tier runs the whole thing, and the entire stack deploys on free tiers for
+  `/evals` — an eval regression was a *public* signal, not a hidden one. The weekly
+  eval run is retired; the last run was 6 July 2026.
+- **💸 6 LLM providers, $0/mo by default.** Swap providers with one env var; the hosted
+  app ran on the Mistral free tier, and the entire stack deploys on free tiers for
   **$0/mo**.
 
 ## 🚀 Quickstart
 
-**Try it now (nothing to install):**
-- **[Open the live demo →](https://thoth-slr.vercel.app)** and build a review, or
-  **[browse a finished one →](https://thoth-slr.vercel.app/showcase)**.
+The hosted app (thoth-slr.vercel.app) ran live in 2026 and is retired, so run your own instance (below).
 
-**Connect it to your AI assistant** — paste this into claude.ai (Pro/Max), Claude
+**Connect it to your AI assistant** — paste your deployment's MCP URL into claude.ai (Pro/Max), Claude
 Desktop, Cursor, or any MCP client (OAuth runs in your browser; no token to copy):
 
 ```
-https://thoth-slr.vercel.app/api/mcp/mcp
+https://<your-host>/api/mcp/mcp
 ```
 
 <details>
@@ -146,9 +141,9 @@ Full setup, the agent pipeline, and the v2 flow: **[docs/architecture.md](docs/a
 
 | | |
 |---|---|
-| **Live app** | [thoth-slr.vercel.app](https://thoth-slr.vercel.app) (Clerk sign-in) · sample review at [`/showcase`](https://thoth-slr.vercel.app/showcase) |
-| **Public evals** | [`/evals`](https://thoth-slr.vercel.app/evals) — **inclusion precision 97%, recall 74%** (papers included vs. each question's expected list, averaged over the 9 golden questions with an inclusion score) on a versioned 18-question golden set (7 of 18 have data at the latest sweep's commit; faithfulness 38% / coverage 32% tracked in the open as the set fills out; discovery/screening v2 under calibration). Regenerated in CI, published with the last-run date — a regression is a public signal. |
-| **MCP Registry** | [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth) — `status: active` |
+| **Hosted app** | Ran live in 2026 at thoth-slr.vercel.app (Clerk sign-in, sample review at `/showcase`); retired on 1 Nov 2026 |
+| **Public evals** | `/evals` (last run 6 July 2026) — **inclusion precision 97%, recall 74%** (papers included vs. each question's expected list, averaged over the 9 golden questions with an inclusion score) on a versioned 18-question golden set (7 of 18 have data at the latest sweep's commit; faithfulness 38% / coverage 32% tracked in the open as the set fills out; discovery/screening v2 under calibration). Regenerated in CI, published with the last-run date — a regression is a public signal. |
+| **MCP Registry** | [`io.github.ahmedEid1/thoth`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ahmedEid1/thoth) — listed; its remote endpoint was retired with the hosted app |
 | **Tests** | 676 unit/integration + 22 live e2e against the deployed instance (MCP transport, real-browser, authenticated walkthroughs, full agent runs) — all green; tsc + lint clean |
 | **Audit log** | Every MCP call recorded with a SHA-256 input hash; no raw input stored |
 | **Deploy cost** | $0/mo — Vercel + Neon + Cloudflare R2 + Langfuse + Trigger.dev, all free tiers ([self-host option](docs/self-host/oracle-cloud-quickstart.md)) |

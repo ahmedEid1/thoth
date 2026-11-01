@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://github.com/ahmedEid1/thoth#readme",
+      "permanent": false
+    }
+  ]
+}
