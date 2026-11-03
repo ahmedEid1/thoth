@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/ahmedeid1-thoth-badge.png)](https://mseep.ai/app/ahmedeid1-thoth)
+
 <div align="center">
 
 <img src="docs/assets/thoth-logo.svg" alt="Thoth — sacred ibis logo" width="120" height="120" />
